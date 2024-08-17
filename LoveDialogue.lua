@@ -19,10 +19,10 @@ function LoveDialogue:new()
         displayedText = "",
         currentCharacter = "",
         boxOpacity = 0,
-        nameScale = 0,
         fadeInDuration = 0.5,
-        bounceNameDuration = 0.3,
+        fadeOutDuration = 0.5,
         animationTimer = 0,
+        state = "inactive", -- Can be "inactive", "fading_in", "active", "fading_out"
     }
     setmetatable(obj, self)
     self.__index = self
@@ -36,6 +36,9 @@ end
 function LoveDialogue:start()
     self.isActive = true
     self.currentLine = 1
+    self.state = "fading_in"
+    self.animationTimer = 0
+    self.boxOpacity = 0
     self:setCurrentDialogue()
 end
 
@@ -45,27 +48,42 @@ function LoveDialogue:setCurrentDialogue()
         self.displayedText = ""
         self.typewriterTimer = 0
     else
-        self.isActive = false
+        self:endDialogue()
     end
+end
+
+function LoveDialogue:endDialogue()
+    self.state = "fading_out"
+    self.animationTimer = 0
 end
 
 function LoveDialogue:update(dt)
     if not self.isActive then return end
 
-    local currentFullText = self.lines[self.currentLine].text
-    if self.displayedText ~= currentFullText then
-        self.typewriterTimer = self.typewriterTimer + dt
-        if self.typewriterTimer >= self.typingSpeed then
-            self.typewriterTimer = 0
-            local nextChar = string.sub(currentFullText, #self.displayedText + 1, #self.displayedText + 1)
-            self.displayedText = self.displayedText .. nextChar
+    if self.state == "fading_in" then
+        self.animationTimer = self.animationTimer + dt
+        self.boxOpacity = math.min(self.animationTimer / self.fadeInDuration, 1)
+        if self.animationTimer >= self.fadeInDuration then
+            self.state = "active"
+        end
+    elseif self.state == "active" then
+        local currentFullText = self.lines[self.currentLine].text
+        if self.displayedText ~= currentFullText then
+            self.typewriterTimer = self.typewriterTimer + dt
+            if self.typewriterTimer >= self.typingSpeed then
+                self.typewriterTimer = 0
+                local nextChar = string.sub(currentFullText, #self.displayedText + 1, #self.displayedText + 1)
+                self.displayedText = self.displayedText .. nextChar
+            end
+        end
+    elseif self.state == "fading_out" then
+        self.animationTimer = self.animationTimer + dt
+        self.boxOpacity = 1 - math.min(self.animationTimer / self.fadeOutDuration, 1)
+        if self.animationTimer >= self.fadeOutDuration then
+            self.isActive = false
+            self.state = "inactive"
         end
     end
-
-    self.animationTimer = math.min(self.animationTimer + dt, math.max(self.fadeInDuration, self.bounceNameDuration))
-    self.boxOpacity = math.min(self.animationTimer / self.fadeInDuration, 1)
-    local bounceProgress = math.min(self.animationTimer / self.bounceNameDuration, 1)
-    self.nameScale = math.sin(bounceProgress * math.pi) * 0.2 + 1
 end
 
 function LoveDialogue:draw()
@@ -80,12 +98,7 @@ function LoveDialogue:draw()
     love.graphics.setFont(self.nameFont)
     local nameColor = self.characters[self.currentCharacter]
     love.graphics.setColor(nameColor.r, nameColor.g, nameColor.b, self.boxOpacity)
-    
-    love.graphics.push()
-    love.graphics.translate(self.padding * 2, windowHeight - self.boxHeight - self.padding + 10)
-    love.graphics.scale(self.nameScale, self.nameScale)
-    love.graphics.print(self.currentCharacter, 0, 0)
-    love.graphics.pop()
+    love.graphics.print(self.currentCharacter, self.padding * 2, windowHeight - self.boxHeight - self.padding + 10)
 
     love.graphics.setColor(1, 1, 1, 0.5 * self.boxOpacity)
     love.graphics.line(
@@ -107,14 +120,16 @@ function LoveDialogue:draw()
 end
 
 function LoveDialogue:advance()
-    if self.displayedText ~= self.lines[self.currentLine].text then
-        self.displayedText = self.lines[self.currentLine].text
-    else
-        self.currentLine = self.currentLine + 1
-        self:setCurrentDialogue()
-        self.animationTimer = 0
-        self.boxOpacity = 0
-        self.nameScale = 0
+    if self.state == "active" then
+        if self.displayedText ~= self.lines[self.currentLine].text then
+            self.displayedText = self.lines[self.currentLine].text
+        else
+            self.currentLine = self.currentLine + 1
+            self:setCurrentDialogue()
+        end
+    elseif self.state == "fading_in" then
+        self.state = "active"
+        self.boxOpacity = 1
     end
 end
 
