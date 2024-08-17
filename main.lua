@@ -1,16 +1,15 @@
-local Dialogue = require "dialogue"
+local LoveDialogue = require "LoveDialogue"
 
 local myDialogue
 
 function love.load()
-    myDialogue = Dialogue.play("dialogue.ld")
+    myDialogue = LoveDialogue.play("dialogue.ld")
 end
 
 function love.update(dt)
     if myDialogue then
         myDialogue:update(dt)
     end
-    
 end
 
 function love.draw()
