@@ -1,9 +1,10 @@
+-- main.lua
 local LoveDialogue = require "LoveDialogue"
 
 local myDialogue
 
 function love.load()
-    myDialogue = LoveDialogue.play("dialogue.ld")
+    myDialogue = LoveDialogue.play("exampleDialogue.ld")
 end
 
 function love.update(dt)
@@ -13,6 +14,9 @@ function love.update(dt)
 end
 
 function love.draw()
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Press SPACE to advance dialogue", 10, 10)
+    
     if myDialogue then
         myDialogue:draw()
     end
@@ -23,3 +27,4 @@ function love.keypressed(key)
         myDialogue:advance()
     end
 end
+
