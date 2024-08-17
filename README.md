@@ -72,7 +72,7 @@ For a better editing experience and syntax highlighting, I recommend using the "
 
 ## Showcase
 
-![LoveDialogue Showcase](repo\Showcase.png)
+![LoveDialogue Showcase](repo/Showcase.png)
 
 ## License
 
