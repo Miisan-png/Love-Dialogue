@@ -70,7 +70,7 @@ You can customize the appearance of the dialogue box by modifying the properties
 
 For a better editing experience and syntax highlighting, I recommend using the "Love2D Dialog (.ld) Language Support" extension for Visual Studio Code. I made this extension specifically for this library. This extension provides syntax highlighting for .ld files.
 
-[Download the extension here](https://marketplace.visualstudio.com/items?itemName=pivapedro.love2d-dialog-ld-language-support)
+[Download the extension here](https://marketplace.visualstudio.com/items?itemName=miisan-mi.ld-language-support)
 
 ## Showcase
 
