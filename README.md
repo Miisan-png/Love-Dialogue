@@ -12,6 +12,8 @@ LoveDialogue is a simple and flexible dialogue system for LÖVE (Love2D) games.
 
 
 ## InAction
+https://github.com/user-attachments/assets/b52541d0-1634-4d92-8450-a747c7d3b913
+
 
 ## Installation
 
