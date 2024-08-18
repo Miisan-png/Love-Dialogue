@@ -13,6 +13,7 @@ LoveDialogue is a simple and flexible dialogue system for LÖVE (Love2D) games.
 
 ## InAction
 
+
 ## Installation
 
 1. Copy the `LoveDialogue.lua` and `LoveDialogueParser.lua` files into your LÖVE project directory.
