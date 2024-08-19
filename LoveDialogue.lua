@@ -22,7 +22,7 @@ function LoveDialogue:new(config)
         fadeInDuration = 0.5,
         fadeOutDuration = 0.5,
         animationTimer = 0,
-        state = "inactive",
+        state = "inactive", -- Can be "inactive", "fading_in", "active", "fading_out"
         enableFadeIn = config.enableFadeIn or true,
         enableFadeOut = config.enableFadeOut or true,
         currentBranch = nil,
