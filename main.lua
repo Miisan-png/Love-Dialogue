@@ -4,7 +4,10 @@ local LoveDialogue = require "LoveDialogue"
 local myDialogue
 
 function love.load()
-    myDialogue = LoveDialogue.play("exampleDialogue.ld")
+    myDialogue = LoveDialogue.play("exampleDialogue.ld", {
+        enableFadeIn = true,
+        enableFadeOut = true,
+    })
 end
 
 function love.update(dt)
@@ -23,8 +26,8 @@ function love.draw()
 end
 
 function love.keypressed(key)
-    if (key == "space" or key == "return") and myDialogue then
-        myDialogue:advance()
+    if myDialogue then
+        myDialogue:keypressed(key)
     end
 end
 
