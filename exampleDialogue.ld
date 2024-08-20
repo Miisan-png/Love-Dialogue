@@ -1,5 +1,5 @@
 Miisan: Hello! What would you like to do?
-Miisan: This is a [color:#FF0000]red text[/color] example, and here's some [wave:2]wavy text[/wave].
+Miisan: This is a [color:#FF0000]red text[/color] example,[wait:2] and here's some [wave:2]wavy text[/wave].
 Miisan: this text will not display:
 [branch1] Short dialogue [/branch1] [target:4]
 [branch2] Long dialogue [/branch2] [target:5]
