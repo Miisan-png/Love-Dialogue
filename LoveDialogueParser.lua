@@ -12,10 +12,51 @@ function Parser.parseFile(filePath)
             if isEnd then
                 text = text:gsub("%s*%(end%)$", "")
             end
-            lines[currentLine] = {character = character, text = text, isEnd = isEnd, branches = nil}
+
+            local parsedLine = {character = character, text = "", isEnd = isEnd, effects = {}, branches = nil}
+            local currentIndex = 1
+
+            while true do
+                local startTag, endTag, tag, content = text:find("%[([^:]+):([^%]]+)%]", currentIndex)
+
+                if not startTag then
+                    -- No more tags found, add the rest of the text
+                    parsedLine.text = parsedLine.text .. text:sub(currentIndex)
+                    break
+                end
+
+                -- Add text before the tag
+                parsedLine.text = parsedLine.text .. text:sub(currentIndex, startTag - 1)
+
+                local effect = {
+                    type = tag,
+                    content = content,
+                    startIndex = #parsedLine.text + 1,
+                    endIndex = #parsedLine.text + 1  -- This will be updated when we find the closing tag
+                }
+
+                -- Find the closing tag
+                local closingStart, closingEnd = text:find("%[/" .. tag .. "%]", endTag + 1)
+                if closingStart then
+                    parsedLine.text = parsedLine.text .. text:sub(endTag + 1, closingStart - 1)
+                    effect.endIndex = #parsedLine.text
+                    currentIndex = closingEnd + 1
+                else
+                    -- If no closing tag, treat it as a single-character effect
+                    parsedLine.text = parsedLine.text .. text:sub(endTag + 1, endTag + 1)
+                    effect.endIndex = effect.startIndex
+                    currentIndex = endTag + 2
+                end
+
+                table.insert(parsedLine.effects, effect)
+            end
+
+            lines[currentLine] = parsedLine
+
             if not characters[character] then
                 characters[character] = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
             end
+
             currentLine = currentLine + 1
         elseif line:match("^%[branch%d+%]") then
             local branchText = line:match("%[branch%d+%]%s*(.-)%s*%[/branch%d+%]")
@@ -28,7 +69,7 @@ function Parser.parseFile(filePath)
             end
         end
     end
-    
+
     return lines, characters
 end
 
