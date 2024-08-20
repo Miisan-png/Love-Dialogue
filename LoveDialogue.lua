@@ -235,13 +235,19 @@ function LoveDialogue:advance()
         else
             if self.displayedText ~= self.lines[self.currentLine].text then
                 self.displayedText = self.lines[self.currentLine].text
+            elseif self.lines[self.currentLine].isEnd then
+                self:endDialogue()  -- End the dialogue if this line has the (end) tag
             else
                 self.currentLine = self.currentLine + 1
                 self:setCurrentDialogue()
             end
         end
+    elseif self.state == "fading_in" then
+        self.state = "active"
+        self.boxOpacity = 1
     end
 end
+
 
 function LoveDialogue:keypressed(key)
     if key == "up" then
