@@ -4,31 +4,35 @@ local TextEffects = require "TextEffects"
 
 local LoveDialogue = {}
 
-function LoveDialogue:new()
+function LoveDialogue:new(config)
     local obj = {
         lines = {},
         characters = {},
         currentLine = 1,
         isActive = false,
-        font = love.graphics.newFont(Constants.DEFAULT_FONT_SIZE),
-        nameFont = love.graphics.newFont(Constants.DEFAULT_NAME_FONT_SIZE),
-        boxColor = Constants.BOX_COLOR,
-        textColor = Constants.TEXT_COLOR,
-        nameColor = Constants.NAME_COLOR,
-        padding = Constants.PADDING,
-        boxHeight = Constants.BOX_HEIGHT,
-        typingSpeed = Constants.TYPING_SPEED,
+        font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
+        nameFont = love.graphics.newFont(config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE),
+        boxColor = config.boxColor or Constants.BOX_COLOR,
+        textColor = config.textColor or Constants.TEXT_COLOR,
+        nameColor = config.nameColor or Constants.NAME_COLOR,
+        padding = config.padding or Constants.PADDING,
+        boxHeight = config.boxHeight or Constants.BOX_HEIGHT,
+        typingSpeed = config.typingSpeed or Constants.TYPING_SPEED,
         typewriterTimer = 0,
         displayedText = "",
         currentCharacter = "",
         boxOpacity = 0,
-        fadeInDuration = Constants.FADE_IN_DURATION,
-        fadeOutDuration = Constants.FADE_OUT_DURATION,
+        fadeInDuration = config.fadeInDuration or Constants.FADE_IN_DURATION,
+        fadeOutDuration = config.fadeOutDuration or Constants.FADE_OUT_DURATION,
         animationTimer = 0,
-        state = "inactive",
+        state = "inactive", -- Can be "inactive", "fading_in", "active", "fading_out"
+        enableFadeIn = config.enableFadeIn or true,
+        enableFadeOut = config.enableFadeOut or true,
         effects = {},
-        autoLayoutEnabled = true,
+        currentBranch = nil,
+        selectedBranchIndex = 1,
         waitTimer = 0,
+        autoLayoutEnabled = config.autoLayoutEnabled or true,
     }
     setmetatable(obj, self)
     self.__index = self
@@ -42,27 +46,32 @@ end
 function LoveDialogue:start()
     self.isActive = true
     self.currentLine = 1
-    self.state = "fading_in"
+    self.state = self.enableFadeIn and "fading_in" or "active"
     self.animationTimer = 0
-    self.boxOpacity = 0
+    self.boxOpacity = self.enableFadeIn and 0 or 1
     self:setCurrentDialogue()
 end
 
 function LoveDialogue:setCurrentDialogue()
-    if self.currentLine <= #self.lines then
-        self.currentCharacter = self.lines[self.currentLine].character
+    local currentDialogue = self.lines[self.currentLine]
+    if currentDialogue then
+        self.currentCharacter = currentDialogue.character
         self.displayedText = ""
         self.typewriterTimer = 0
         self.effects = {}
         self.waitTimer = 0
-        for _, effect in ipairs(self.lines[self.currentLine].effects) do
-            table.insert(self.effects, {
-                type = effect.type,
-                content = effect.content,
-                startIndex = effect.startIndex,
-                endIndex = effect.endIndex,
-                timer = 0
-            })
+        self.currentBranch = currentDialogue.branches
+        self.selectedBranchIndex = 1
+        if currentDialogue.effects then
+            for _, effect in ipairs(currentDialogue.effects) do
+                table.insert(self.effects, {
+                    type = effect.type,
+                    content = effect.content,
+                    startIndex = effect.startIndex,
+                    endIndex = effect.endIndex,
+                    timer = 0
+                })
+            end
         end
     else
         self:endDialogue()
@@ -70,8 +79,11 @@ function LoveDialogue:setCurrentDialogue()
 end
 
 function LoveDialogue:endDialogue()
-    self.state = "fading_out"
+    self.state = self.enableFadeOut and "fading_out" or "inactive"
     self.animationTimer = 0
+    if not self.enableFadeOut then
+        self.isActive = false
+    end
 end
 
 function LoveDialogue:update(dt)
@@ -84,23 +96,27 @@ function LoveDialogue:update(dt)
             self.state = "active"
         end
     elseif self.state == "active" then
-        local currentFullText = self.lines[self.currentLine].text
-        if self.displayedText ~= currentFullText then
-            if self.waitTimer > 0 then
-                self.waitTimer = self.waitTimer - dt
-            else
-                self.typewriterTimer = self.typewriterTimer + dt
-                if self.typewriterTimer >= self.typingSpeed then
-                    self.typewriterTimer = 0
-                    local nextCharIndex = #self.displayedText + 1
-                    local nextChar = string.sub(currentFullText, nextCharIndex, nextCharIndex)
-                    self.displayedText = self.displayedText .. nextChar
+        if self.currentBranch then
+            -- Branch selection mode
+        else
+            local currentFullText = self.lines[self.currentLine].text
+            if self.displayedText ~= currentFullText then
+                if self.waitTimer > 0 then
+                    self.waitTimer = self.waitTimer - dt
+                else
+                    self.typewriterTimer = self.typewriterTimer + dt
+                    if self.typewriterTimer >= self.typingSpeed then
+                        self.typewriterTimer = 0
+                        local nextCharIndex = #self.displayedText + 1
+                        local nextChar = string.sub(currentFullText, nextCharIndex, nextCharIndex)
+                        self.displayedText = self.displayedText .. nextChar
 
-                    -- Check for wait effect
-                    for _, effect in ipairs(self.effects) do
-                        if effect.type == "wait" and effect.startIndex == nextCharIndex then
-                            self.waitTimer = tonumber(effect.content) or 0
-                            break
+                        -- Check for wait effect
+                        for _, effect in ipairs(self.effects) do
+                            if effect.type == "wait" and effect.startIndex == nextCharIndex then
+                                self.waitTimer = tonumber(effect.content) or 0
+                                break
+                            end
                         end
                     end
                 end
@@ -151,40 +167,48 @@ function LoveDialogue:draw()
         windowHeight - self.boxHeight - self.padding + 35
     )
 
-    -- Draw text
+    -- Draw text or branches
     love.graphics.setFont(self.font)
-    local x = self.padding * 2
-    local y = windowHeight - self.boxHeight + self.padding + 20
-    local limit = boxWidth - self.padding * 2
+    if self.currentBranch then
+        -- Draw branching options
+        for i, branch in ipairs(self.currentBranch) do
+            local prefix = (i == self.selectedBranchIndex) and "-> " or "   "
+            love.graphics.printf(prefix .. branch.text, self.padding * 2, windowHeight - self.boxHeight + self.padding + 20 + (i - 1) * 20, boxWidth - self.padding * 2, "left")
+        end
+    else
+        local x = self.padding * 2
+        local y = windowHeight - self.boxHeight + self.padding + 20
+        local limit = boxWidth - self.padding * 2
 
-    for i = 1, #self.displayedText do
-        local char = self.displayedText:sub(i, i)
-        local charWidth = self.font:getWidth(char)
+        for i = 1, #self.displayedText do
+            local char = self.displayedText:sub(i, i)
+            local charWidth = self.font:getWidth(char)
 
-        local color = {unpack(self.textColor)}
-        local offset = {x = 0, y = 0}
-        local scale = 1
+            local color = {unpack(self.textColor)}
+            local offset = {x = 0, y = 0}
+            local scale = 1
 
-        for _, effect in ipairs(self.effects) do
-            if i >= effect.startIndex and i <= effect.endIndex then
-                local effectFunc = TextEffects[effect.type]
-                if effectFunc then
-                    local effectColor, effectOffset = effectFunc(effect, char, i, effect.timer)
-                    if effectColor then color = effectColor end
-                    offset.x = offset.x + effectOffset.x
-                    offset.y = offset.y + effectOffset.y
-                    scale = scale * (effectOffset.scale or 1)
+            for _, effect in ipairs(self.effects) do
+                if i >= effect.startIndex and i <= effect.endIndex then
+                    local effectFunc = TextEffects[effect.type]
+                    if effectFunc then
+                        local effectColor, effectOffset = effectFunc(effect, char, i, effect.timer)
+                        if effectColor then color = effectColor end
+                        offset.x = offset.x + effectOffset.x
+                        offset.y = offset.y + effectOffset.y
+                        scale = scale * (effectOffset.scale or 1)
+                    end
                 end
             end
-        end
 
-        love.graphics.setColor(color[1], color[2], color[3], self.boxOpacity)
-        love.graphics.print(char, x + offset.x, y + offset.y, 0, scale, scale)
-        x = x + charWidth * scale
+            love.graphics.setColor(color[1], color[2], color[3], self.boxOpacity)
+            love.graphics.print(char, x + offset.x, y + offset.y, 0, scale, scale)
+            x = x + charWidth * scale
 
-        if x > limit then
-            x = self.padding * 2
-            y = y + self.font:getHeight() * scale
+            if x > limit then
+                x = self.padding * 2
+                y = y + self.font:getHeight() * scale
+            end
         end
     end
 end
@@ -199,12 +223,24 @@ end
 
 function LoveDialogue:advance()
     if self.state == "active" then
-        if self.displayedText ~= self.lines[self.currentLine].text then
-            self.displayedText = self.lines[self.currentLine].text
-            self.waitTimer = 0
+        if self.currentBranch then
+            local selectedBranch = self.currentBranch[self.selectedBranchIndex]
+            if selectedBranch and selectedBranch.targetLine then
+                self.currentLine = selectedBranch.targetLine
+                self.currentBranch = nil
+                self:setCurrentDialogue()
+            else
+                self:endDialogue()
+            end
         else
-            self.currentLine = self.currentLine + 1
-            self:setCurrentDialogue()
+            if self.displayedText ~= self.lines[self.currentLine].text then
+                self.displayedText = self.lines[self.currentLine].text
+            elseif self.lines[self.currentLine].isEnd then
+                self:endDialogue()  -- End the dialogue if this line has the (end) tag
+            else
+                self.currentLine = self.currentLine + 1
+                self:setCurrentDialogue()
+            end
         end
     elseif self.state == "fading_in" then
         self.state = "active"
@@ -212,8 +248,23 @@ function LoveDialogue:advance()
     end
 end
 
-function LoveDialogue.play(filePath)
-    local dialogue = LoveDialogue:new()
+
+function LoveDialogue:keypressed(key)
+    if key == "up" then
+        if self.currentBranch then
+            self.selectedBranchIndex = math.max(1, self.selectedBranchIndex - 1)
+        end
+    elseif key == "down" then
+        if self.currentBranch then
+            self.selectedBranchIndex = math.min(#self.currentBranch, self.selectedBranchIndex + 1)
+        end
+    elseif key == "return" or key == "space" then
+        self:advance()
+    end
+end
+
+function LoveDialogue.play(filePath, config)
+    local dialogue = LoveDialogue:new(config or {})
     dialogue:loadFromFile(filePath)
     dialogue:start()
     return dialogue

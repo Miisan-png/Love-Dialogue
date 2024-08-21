@@ -3,32 +3,38 @@ local Parser = {}
 function Parser.parseFile(filePath)
     local lines = {}
     local characters = {}
-    
+    local currentLine = 1
+
     for line in love.filesystem.lines(filePath) do
-        local character, text = line:match("(.-):%s*(.*)")
+        local character, text = line:match("^(%S+):%s*(.+)$")
         if character and text then
-            local parsedLine = {character = character, text = "", effects = {}}
+            local isEnd = text:match("%(end%)$")
+            if isEnd then
+                text = text:gsub("%s*%(end%)$", "")
+            end
+
+            local parsedLine = {character = character, text = "", isEnd = isEnd, effects = {}, branches = nil}
             local currentIndex = 1
-            
+
             while true do
                 local startTag, endTag, tag, content = text:find("%[([^:]+):([^%]]+)%]", currentIndex)
-                
+
                 if not startTag then
                     -- No more tags found, add the rest of the text
                     parsedLine.text = parsedLine.text .. text:sub(currentIndex)
                     break
                 end
-                
+
                 -- Add text before the tag
                 parsedLine.text = parsedLine.text .. text:sub(currentIndex, startTag - 1)
-                
+
                 local effect = {
                     type = tag,
                     content = content,
                     startIndex = #parsedLine.text + 1,
                     endIndex = #parsedLine.text + 1  -- This will be updated when we find the closing tag
                 }
-                
+
                 -- Find the closing tag
                 local closingStart, closingEnd = text:find("%[/" .. tag .. "%]", endTag + 1)
                 if closingStart then
@@ -41,17 +47,29 @@ function Parser.parseFile(filePath)
                     effect.endIndex = effect.startIndex
                     currentIndex = endTag + 2
                 end
-                
+
                 table.insert(parsedLine.effects, effect)
             end
-            
-            table.insert(lines, parsedLine)
+
+            lines[currentLine] = parsedLine
+
             if not characters[character] then
                 characters[character] = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
             end
+
+            currentLine = currentLine + 1
+        elseif line:match("^%[branch%d+%]") then
+            local branchText = line:match("%[branch%d+%]%s*(.-)%s*%[/branch%d+%]")
+            local targetLine = tonumber(line:match("%[target:(%d+)%]"))
+            if branchText and targetLine then
+                if not lines[currentLine - 1].branches then
+                    lines[currentLine - 1].branches = {}
+                end
+                table.insert(lines[currentLine - 1].branches, {text = branchText, targetLine = targetLine})
+            end
         end
     end
-    
+
     return lines, characters
 end
 

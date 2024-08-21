@@ -5,7 +5,10 @@ local isFullscreen = false
 
 function love.load()
     love.window.setMode(800, 600, {resizable=true, minwidth=400, minheight=300})
-    myDialogue = LoveDialogue.play("exampleDialogue.ld")
+    myDialogue = LoveDialogue.play("exampleDialogue.ld", {
+        enableFadeIn = true,
+        enableFadeOut = true,
+    })
 end
 
 function love.update(dt)
@@ -26,9 +29,9 @@ function love.draw()
 end
 
 function love.keypressed(key)
-    if key == "space" or key == "return" then
+    if key == "space" or key == "up" or key == "down" or key == "return" then
         if myDialogue then
-            myDialogue:advance()
+            myDialogue:keypressed(key)
         end
     elseif key == "f" then
         toggleFullscreen()
