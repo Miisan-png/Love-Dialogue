@@ -227,12 +227,20 @@ function LoveDialogue:advance()
     if self.state == "active" then
         if self.currentBranch then
             local selectedBranch = self.currentBranch[self.selectedBranchIndex]
-            if selectedBranch and selectedBranch.targetLine then
-                self.currentLine = selectedBranch.targetLine
-                self.currentBranch = nil
-                self:setCurrentDialogue()
-            else
-                self:endDialogue()
+            if selectedBranch then
+                -- Execute the branch callback if it exists
+                if selectedBranch.callback then
+                    selectedBranch.callback()  -- Call the function
+                end
+                
+                -- Proceed to the target line
+                if selectedBranch.targetLine then
+                    self.currentLine = selectedBranch.targetLine
+                    self.currentBranch = nil
+                    self:setCurrentDialogue()
+                else
+                    self:endDialogue()
+                end
             end
         else
             if self.displayedText ~= self.lines[self.currentLine].text then
@@ -249,7 +257,6 @@ function LoveDialogue:advance()
         self.boxOpacity = 1
     end
 end
-
 
 function LoveDialogue:keypressed(key)
     if key == "up" then
