@@ -17,7 +17,7 @@ function Parser.parseFile(filePath)
             local currentIndex = 1
 
             while true do
-                local startTag, endTag, tag, content = text:find("%[([^:]+):([^%]]+)%]", currentIndex)
+                local startTag, endTag, tag, content = text:find("{([^:}]+):([^}]*)}", currentIndex)
 
                 if not startTag then
                     -- No more tags found, add the rest of the text
@@ -36,7 +36,7 @@ function Parser.parseFile(filePath)
                 }
 
                 -- Find the closing tag
-                local closingStart, closingEnd = text:find("%[/" .. tag .. "%]", endTag + 1)
+                local closingStart, closingEnd = text:find("{/" .. tag .. "}", endTag + 1)
                 if closingStart then
                     parsedLine.text = parsedLine.text .. text:sub(endTag + 1, closingStart - 1)
                     effect.endIndex = #parsedLine.text
@@ -71,6 +71,42 @@ function Parser.parseFile(filePath)
     end
 
     return lines, characters
+end
+
+-- Debug function to print parsed information
+function Parser.printDebugInfo(lines, characters)
+    print("Parsed Lines:")
+    for i, line in ipairs(lines) do
+        print(string.format("Line %d:", i))
+        print(string.format("  Character: %s", line.character))
+        print(string.format("  Text: %s", line.text))
+        print(string.format("  Is End: %s", tostring(line.isEnd)))
+
+        print("  Effects:")
+        for _, effect in ipairs(line.effects) do
+            print(string.format("    Type: %s", effect.type))
+            print(string.format("    Content: %s", effect.content))
+            print(string.format("    Start Index: %d", effect.startIndex))
+            print(string.format("    End Index: %d", effect.endIndex))
+        end
+
+        if line.branches then
+            print("  Branches:")
+            for _, branch in ipairs(line.branches) do
+                print(string.format("    Target Line: %d", branch.targetLine))
+                print(string.format("    Text: %s", branch.text))
+
+                print("    Effects:")
+                -- Branches do not include effects
+            end
+        end
+    end
+
+    print("Characters:")
+    for character, color in pairs(characters) do
+        print(string.format("  Character: %s", character))
+        print(string.format("    Color: R=%f, G=%f, B=%f", color.r, color.g, color.b))
+    end
 end
 
 return Parser

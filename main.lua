@@ -4,11 +4,13 @@ local myDialogue
 local isFullscreen = false
 
 function love.load()
+    love._openConsole()
     love.window.setMode(800, 600, {resizable=true, minwidth=400, minheight=300})
     myDialogue = LoveDialogue.play("exampleDialogue.ld", {
         enableFadeIn = true,
         enableFadeOut = true,
     })
+    Parser.printDebugInfo(myDialogue.lines, myDialogue.characters)
 end
 
 function love.update(dt)

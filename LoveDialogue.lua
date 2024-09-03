@@ -1,4 +1,4 @@
-local Parser = require "LoveDialogueParser"
+Parser = require "LoveDialogueParser"
 local Constants = require "DialogueConstants"
 local TextEffects = require "TextEffects"
 
@@ -166,7 +166,9 @@ function LoveDialogue:draw()
         boxWidth - self.padding * 2,
         windowHeight - self.boxHeight - self.padding + 35
     )
-
+    -- reset color  
+    love.graphics.setColor(1, 1, 1, 1)
+    
     -- Draw text or branches
     love.graphics.setFont(self.font)
     if self.currentBranch then
