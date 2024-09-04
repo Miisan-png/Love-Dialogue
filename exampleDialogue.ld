@@ -1,5 +1,5 @@
 Miisan: Hello! What would you like to do?
-Miisan: This is a {color:#FF0000}red text{/color} example,{wait:2} and here's some {wave:2}wavy text{/wave}.
+Miisan: This is a {jiggle:1}{wave:2}{color:#FF0000}jiggly wavy red text{/color}{/wave}{/jiggle} example,{wait:2} and here's some {wave:2}normal wavy text{/wave}.
 Miisan: Chose one of the following options:
 [branch1] Short dialogue [/branch1] [target:4] ? branch1_callback.lua
 [branch2] Long dialogue [/branch2] [target:5] ? branch2_callback.lua

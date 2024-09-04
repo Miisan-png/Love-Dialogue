@@ -9,13 +9,68 @@ local function loadLuaFile(filePath)
     return chunk()
 end
 
+local function parseTextWithTags(text)
+    local parsedText = ""
+    local effectsStack = {}
+    local openEffects = {}
+    local currentIndex = 1
+
+    while currentIndex <= #text do
+        local startTag, endTag, tag, content = text:find("{([^:}]+):([^}]*)}", currentIndex)
+        local closingStartTag, closingEndTag, closingTag = text:find("{/([^}]+)}", currentIndex)
+
+        if not startTag and not closingStartTag then
+            -- No more tags found, add the rest of the text
+            parsedText = parsedText .. text:sub(currentIndex)
+            break
+        end
+
+        -- If we find a closing tag before an opening tag, we should handle it first
+        if closingStartTag and (not startTag or closingStartTag < startTag) then
+            -- Add text before the closing tag
+            parsedText = parsedText .. text:sub(currentIndex, closingStartTag - 1)
+
+            -- Close the most recent effect that matches the closing tag
+            local effect
+            for i = #openEffects, 1, -1 do
+                if openEffects[i].type == closingTag then
+                    effect = table.remove(openEffects, i)
+                    break
+                end
+            end
+
+            if effect then
+                effect.endIndex = #parsedText
+                table.insert(effectsStack, effect)
+            end
+
+            -- Move index past the closing tag
+            currentIndex = closingEndTag + 1
+        else
+            -- Add text before the opening tag
+            parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
+
+            -- Push the opening tag to the stack
+            table.insert(openEffects, {type = tag, content = content, startIndex = #parsedText + 1})
+
+            -- Move index past the opening tag
+            currentIndex = endTag + 1
+        end
+    end
+
+    -- Close any remaining open tags
+    for _, effect in ipairs(openEffects) do
+        effect.endIndex = #parsedText
+        table.insert(effectsStack, effect)
+    end
+
+    return parsedText, effectsStack
+end
+
 function Parser.parseFile(filePath)
     local lines = {}
     local characters = {}
     local currentLine = 1
-
-    -- Ensure the file path is correctly normalized
-    local fileDir = love.filesystem.getDirectoryItems(love.filesystem.getRealDirectory(filePath))
 
     for line in love.filesystem.lines(filePath) do
         local character, text = line:match("^(%S+):%s*(.+)$")
@@ -26,42 +81,7 @@ function Parser.parseFile(filePath)
             end
 
             local parsedLine = {character = character, text = "", isEnd = isEnd, effects = {}, branches = nil}
-            local currentIndex = 1
-
-            while true do
-                local startTag, endTag, tag, content = text:find("{([^:}]+):([^}]*)}", currentIndex)
-
-                if not startTag then
-                    -- No more tags found, add the rest of the text
-                    parsedLine.text = parsedLine.text .. text:sub(currentIndex)
-                    break
-                end
-
-                -- Add text before the tag
-                parsedLine.text = parsedLine.text .. text:sub(currentIndex, startTag - 1)
-
-                local effect = {
-                    type = tag,
-                    content = content,
-                    startIndex = #parsedLine.text + 1,
-                    endIndex = #parsedLine.text + 1  -- This will be updated when we find the closing tag
-                }
-
-                -- Find the closing tag
-                local closingStart, closingEnd = text:find("{/" .. tag .. "}", endTag + 1)
-                if closingStart then
-                    parsedLine.text = parsedLine.text .. text:sub(endTag + 1, closingStart - 1)
-                    effect.endIndex = #parsedLine.text
-                    currentIndex = closingEnd + 1
-                else
-                    -- If no closing tag, treat it as a single-character effect
-                    parsedLine.text = parsedLine.text .. text:sub(endTag + 1, endTag + 1)
-                    effect.endIndex = effect.startIndex
-                    currentIndex = endTag + 2
-                end
-
-                table.insert(parsedLine.effects, effect)
-            end
+            parsedLine.text, parsedLine.effects = parseTextWithTags(text)
 
             lines[currentLine] = parsedLine
 
@@ -132,9 +152,6 @@ function Parser.printDebugInfo(lines, characters)
                 else
                     print("    Callback: Not loaded")
                 end
-
-                print("    Effects:")
-                -- Branches do not include effects
             end
         end
     end
