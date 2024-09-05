@@ -62,6 +62,14 @@ function LoveDialogue:setCurrentDialogue()
         self.waitTimer = 0
         self.currentBranch = currentDialogue.branches
         self.selectedBranchIndex = 1
+
+        if self.currentBranch then
+            local branchText = currentDialogue.text
+            if branchText ~= "" then
+                self.displayedText = branchText
+            end
+        end
+
         if currentDialogue.effects then
             for _, effect in ipairs(currentDialogue.effects) do
                 table.insert(self.effects, {
@@ -171,17 +179,23 @@ function LoveDialogue:draw()
     
     -- Draw text or branches
     love.graphics.setFont(self.font)
+    local x = self.padding * 2
+    local y = windowHeight - self.boxHeight + self.padding + 20
+    local limit = boxWidth - self.padding * 2
+
     if self.currentBranch then
+        -- Draw the branch text above the choices if any
+        if self.displayedText and self.displayedText ~= "" then
+            love.graphics.printf(self.displayedText, self.padding * 2, y, limit, "left")
+            y = y + self.font:getHeight() + 10 -- Move down after drawing branch text
+        end
+
         -- Draw branching options
         for i, branch in ipairs(self.currentBranch) do
             local prefix = (i == self.selectedBranchIndex) and "-> " or "   "
-            love.graphics.printf(prefix .. branch.text, self.padding * 2, windowHeight - self.boxHeight + self.padding + 20 + (i - 1) * 20, boxWidth - self.padding * 2, "left")
+            love.graphics.printf(prefix .. branch.text, self.padding * 2, y + (i - 1) * 20, limit, "left")
         end
     else
-        local x = self.padding * 2
-        local y = windowHeight - self.boxHeight + self.padding + 20
-        local limit = boxWidth - self.padding * 2
-
         for i = 1, #self.displayedText do
             local char = self.displayedText:sub(i, i)
             local charWidth = self.font:getWidth(char)
@@ -214,6 +228,7 @@ function LoveDialogue:draw()
         end
     end
 end
+
 
 function LoveDialogue:adjustLayout()
     local windowWidth, windowHeight = love.graphics.getDimensions()
