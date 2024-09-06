@@ -96,6 +96,8 @@ function Parser.parseFile(filePath)
             local callbackFile = line:match("%?%s*([%w_%.]+)")
 
             if branchText and targetLine then
+                local parsedBranchText, branchEffects = parseTextWithTags(branchText)
+
                 if not lines[currentLine - 1].branches then
                     lines[currentLine - 1].branches = {}
                 end
@@ -117,7 +119,12 @@ function Parser.parseFile(filePath)
                     end
                 end
 
-                table.insert(lines[currentLine - 1].branches, {text = branchText, targetLine = targetLine, callback = callback})
+                table.insert(lines[currentLine - 1].branches, {
+                    text = parsedBranchText, 
+                    effects = branchEffects,
+                    targetLine = targetLine, 
+                    callback = callback
+                })
             end
         end
     end
@@ -144,9 +151,25 @@ function Parser.printDebugInfo(lines, characters)
 
         if line.branches then
             print("  Branches:")
-            for _, branch in ipairs(line.branches) do
-                print(string.format("    Target Line: %d", branch.targetLine))
-                print(string.format("    Text: %s", branch.text))
+            for branchIndex, branch in ipairs(line.branches) do
+                print(string.format("    Branch %d:", branchIndex))
+                print(string.format("      Target Line: %d", branch.targetLine))
+                print(string.format("      Text: %s", branch.text))
+
+                -- Check and print branch effects
+                if branch.effects then
+                    print("      Effects:")
+                    for _, effect in ipairs(branch.effects) do
+                        print(string.format("        Type: %s", effect.type))
+                        print(string.format("        Content: %s", effect.content))
+                        print(string.format("        Start Index: %d", effect.startIndex))
+                        print(string.format("        End Index: %d", effect.endIndex))
+                    end
+                else
+                    print("      Effects: None")
+                end
+
+                -- Print branch callback
                 if branch.callback then
                     print("    Callback: Loaded")
                 else

@@ -193,7 +193,46 @@ function LoveDialogue:draw()
         -- Draw branching options
         for i, branch in ipairs(self.currentBranch) do
             local prefix = (i == self.selectedBranchIndex) and "-> " or "   "
-            love.graphics.printf(prefix .. branch.text, self.padding * 2, y + (i - 1) * 20, limit, "left")
+            local branchText = prefix .. branch.text
+            local branchX = x
+            local branchY = y + (i - 1) * 20
+
+            love.graphics.setColor(1, 1, 1, self.boxOpacity)
+            love.graphics.print(prefix, branchX, branchY)
+            branchX = branchX + self.font:getWidth(prefix)
+
+            for j = 1, #branch.text do
+                local char = branch.text:sub(j, j)
+                local charWidth = self.font:getWidth(char)
+                
+                local color = {unpack(self.textColor)}
+                local offset = {x = 0, y = 0}
+                local scale = 1
+
+                for _, effect in ipairs(branch.effects) do
+                    local textStartIndex = j + #prefix  -- Skip the arrow part
+                    if textStartIndex >= effect.startIndex and textStartIndex <= effect.endIndex + #prefix then
+                        local effectFunc = TextEffects[effect.type]
+                        if effectFunc then
+                            local effectColor, effectOffset = effectFunc(effect, char, textStartIndex, effect.timer)
+                            if effectColor then color = effectColor end
+                            offset.x = offset.x + effectOffset.x
+                            offset.y = offset.y + effectOffset.y
+                            scale = scale * (effectOffset.scale or 1)
+                        end
+                    end
+                end
+
+                love.graphics.setColor(color[1], color[2], color[3], self.boxOpacity)
+                love.graphics.print(char, branchX + offset.x, branchY + offset.y, 0, scale, scale)
+                branchX = branchX + charWidth * scale
+
+                -- Wrap text if necessary
+                if branchX > limit then
+                    branchX = x + self.font:getWidth(prefix)
+                    branchY = branchY + self.font:getHeight() * scale
+                end
+            end
         end
     else
         for i = 1, #self.displayedText do
