@@ -1,3 +1,4 @@
+-- CallbackHandler.lua
 local CallbackHandler = {}
 local registeredCallbacks = {}
 
@@ -23,6 +24,9 @@ function CallbackHandler.registerFile(filePath)
         return false, "Failed to read file"
     end
     
+    -- Clear existing callbacks before registering new ones
+    registeredCallbacks = {}
+    
     local env = setmetatable({}, {__index = _G})
     local chunk, err = load(content, filePath, "t", env)
     
@@ -41,6 +45,13 @@ function CallbackHandler.registerFile(filePath)
         log("ERROR: Callback file must return a table of functions")
         return false, "Invalid callback file format"
     end
+    
+    -- Print all available callbacks for debugging
+    log("Available callbacks in file:")
+    for name, _ in pairs(result) do
+        log("  -", name)
+    end
+    
     local count = 0
     for name, func in pairs(result) do
         if type(func) == "function" then
@@ -50,6 +61,12 @@ function CallbackHandler.registerFile(filePath)
         else
             log("WARNING: Skipping invalid callback:", name, "- not a function")
         end
+    end
+    
+    -- Print all registered callbacks for verification
+    log("Currently registered callbacks:")
+    for name, _ in pairs(registeredCallbacks) do
+        log("  -", name)
     end
     
     log("Successfully registered", count, "callbacks")

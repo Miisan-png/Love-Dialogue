@@ -7,7 +7,7 @@ local PortraitManager = require "PortraitManager"
 local LoveDialogue = {}
 
 function LoveDialogue:new(config)
-    config = config or {}  -- Ensure config exists
+    config = config or {} 
     local obj = {
         lines = {},
         characters = {},
@@ -72,7 +72,6 @@ function LoveDialogue:setCurrentDialogue()
         self.waitTimer = 0
         self.choiceMode = currentDialogue.choices and #currentDialogue.choices > 0
         
-        -- If there are choices, display the full text immediately
         if self.choiceMode then
             self.displayedText = currentDialogue.text
             self.selectedChoice = 1
@@ -109,16 +108,13 @@ function LoveDialogue:draw()
     local windowWidth, windowHeight = love.graphics.getDimensions()
     local boxWidth = windowWidth - 2 * self.padding
     
-    -- Draw dialogue box background
     love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
     love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
 
-    -- Calculate initial text position
     local textX = self.padding * 2
     local textY = windowHeight - self.boxHeight - self.padding + self.padding
     local textLimit = boxWidth - (self.padding * 3)
 
-    -- Adjust text position and limit if portrait is present
     local hasPortrait = self.portraitEnabled and self.currentCharacter and 
                        PortraitManager.hasPortrait(self.currentCharacter)
     
@@ -136,12 +132,10 @@ function LoveDialogue:draw()
             self.portraitSize / portrait:getWidth(), 
             self.portraitSize / portrait:getHeight())
 
-        -- Adjust text position for portrait
         textX = self.padding * 3 + self.portraitSize
         textLimit = boxWidth - self.portraitSize - (self.padding * 4)
     end
 
-    -- Draw name (if present)
     if self.currentCharacter and self.currentCharacter ~= "" then
         love.graphics.setFont(self.nameFont)
         local nameColor = self.characters[self.currentCharacter] or self.nameColor
@@ -151,7 +145,6 @@ function LoveDialogue:draw()
         textY = textY + self.nameFont:getHeight() + 5
     end
 
-    -- Draw text
     love.graphics.setFont(self.font)
     if self.choiceMode then
         for i, choice in ipairs(self.lines[self.currentLine].choices) do
@@ -267,7 +260,6 @@ function LoveDialogue:update(dt)
     end
 end
 
--- In LoveDialogue.lua, update the advance() function to include nil checks:
 function LoveDialogue:advance()
     if self.state ~= "active" then
         if self.state == "fading_in" then

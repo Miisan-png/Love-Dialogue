@@ -6,6 +6,18 @@ local myDialogue
 
 function love.load()
     DebugConsole.init()
+
+    local showSquareCallback = CallbackHandler.getCallback("show_square")
+        if showSquareCallback then
+            print("DEBUG: show_square callback is available")
+            -- Test the callback
+            showSquareCallback()
+            if _G.square and _G.square.visible then
+                print("DEBUG: Callback executed successfully")
+            end
+        else
+            print("DEBUG: show_square callback not found")
+        end
     
     -- Register callbacks with correct path
     local success, result = CallbackHandler.registerFile("callbacks.lua")

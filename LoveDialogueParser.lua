@@ -139,13 +139,36 @@ function Parser.parseFile(filePath)
 
             currentLine = currentLine + 1
         elseif line:match("^%->") then
-            local choiceText, target, callbackName = line:match("^%->%s*(.-)%s*%[target:([%w_]+)%]%s*@?(%w*)%s*$")
-            if choiceText and target then
+            print("DEBUG: Processing choice line:", line)
+            line = line:gsub("[\r\n]", "")
+            
+            local choiceText, target, callbackName = line:match("^%->%s*([^%[]+)%s*%[target:([%w_]+)%]%s*@?(%w*)%s*$")
+            
+            print("DEBUG: Raw matches:")
+            print("  Text:", choiceText and '"'..choiceText..'"' or "nil")
+            print("  Target:", target and '"'..target..'"' or "nil")
+            print("  Callback:", callbackName and '"'..callbackName..'"' or "nil")
+            
+            if choiceText then
+                -- Trim whitespace
+                choiceText = choiceText:match("^%s*(.-)%s*$")
+                target = target and target:match("^%s*(.-)%s*$")
+                if callbackName then
+                    callbackName = callbackName:match("^%s*(.-)%s*$")
+                end
+                
+                print("DEBUG: After trimming:")
+                print("  Text:", '"'..choiceText..'"')
+                print("  Target:", target and '"'..target..'"' or "nil")
+                print("  Callback:", callbackName and '"'..callbackName..'"' or "nil")
+                
                 local parsedChoiceText, choiceEffects = Parser.parseTextWithTags(choiceText)
                 local callback = nil
+                
                 if callbackName and callbackName ~= "" then
+                    print("DEBUG: Looking up callback:", callbackName)
                     callback = CallbackHandler.getCallback(callbackName)
-                    print("Parsing choice callback:", callbackName, callback ~= nil)  -- Debug print
+                    print("DEBUG: Callback found:", callback ~= nil)
                 end
                 
                 local choice = {
@@ -155,22 +178,26 @@ function Parser.parseFile(filePath)
                     target = target,
                     callback = callback
                 }
-        
+                
                 if lines[currentLine - 1] then
                     table.insert(lines[currentLine - 1].choices, choice)
+                    print("DEBUG: Added choice successfully")
+                else
+                    print("DEBUG: Warning - No previous line to attach choice to")
+                end
+            else
+                print("DEBUG: Failed to parse choice line:", line)
+            end
+                elseif line:match("^%[.*%]") then
+                    currentScene = line:match("^%[(.*)%]")
+                    scenes[currentScene] = currentLine
                 end
             end
-        elseif line:match("^%[.*%]") then
-            currentScene = line:match("^%[(.*)%]")
-            scenes[currentScene] = currentLine
+
+            return lines, characters, scenes
         end
-    end
-
-    return lines, characters, scenes
-end
 
 
--- Debug function to print parsed information
 function Parser.printDebugInfo(lines, characters)
     print("Parsed Lines:")
     for i, line in ipairs(lines) do
