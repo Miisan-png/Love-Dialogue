@@ -19,7 +19,7 @@ LoveDialogue is a powerful and flexible dialogue system for LÖVE (Love2D) games
 
 ## Showcase
 ![LoveDialogue Logo](repo/Showcase.png)
-
+![LoveDialogue Logo](repo/Showcase_2.png)
 ## Installation
 
 1. Copy the following files into your LÖVE project directory:
