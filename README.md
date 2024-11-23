@@ -18,7 +18,7 @@ LoveDialogue is a powerful and flexible dialogue system for LÖVE (Love2D) games
 - Typewriter text effect
 
 ## Showcase
-![LoveDialogue Logo](repo/showcase.png)
+![LoveDialogue Logo](repo/Showcase.png)
 
 ## Installation
 
