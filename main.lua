@@ -1,18 +1,30 @@
 local LoveDialogue = require "LoveDialogue"
+local CallbackHandler = require "CallbackHandler"
+local DebugConsole = require "Debuging.DebugConsole"
 
 local myDialogue
-local isFullscreen = false
 
 function love.load()
-    if love.system.getOS() == "Windows" then
-        love._openConsole()
+    DebugConsole.init()
+    
+    -- Register callbacks with correct path
+    local success, result = CallbackHandler.registerFile("callbacks.lua")
+    if not success then
+        print("Failed to register callbacks:", result)
+        return
     end
-    love.window.setMode(800, 600, {resizable=true, minwidth=400, minheight=300})
-    myDialogue = LoveDialogue.play("exampleDialogue.ld", {
-        enableFadeIn = true,
-        enableFadeOut = true,
-    })
-    Parser.printDebugInfo(myDialogue.lines, myDialogue.characters)
+    print("Callbacks registered successfully!")
+    
+    local dialogueSuccess, dialogueErr = pcall(function()
+        myDialogue = LoveDialogue.play("dialogue.ld", {
+            boxHeight = 150,
+            portraitEnabled = true
+        })
+    end)
+    
+    if not dialogueSuccess then
+        print("Error loading dialogue:", dialogueErr)
+    end
 end
 
 function love.update(dt)
@@ -22,10 +34,12 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Press SPACE to advance dialogue", 10, 10)
-    love.graphics.print("Press F to toggle fullscreen", 10, 30)
-    love.graphics.print("Current window size: " .. love.graphics.getWidth() .. "x" .. love.graphics.getHeight(), 10, 50)
+    -- Draw the square if it exists and is visible
+    if _G.square and _G.square.visible then
+        love.graphics.setColor(1, 0, 0, 1) -- Red square for visibility
+        love.graphics.rectangle("fill", _G.square.x, _G.square.y, _G.square.size, _G.square.size)
+        love.graphics.setColor(1, 1, 1, 1) -- Reset color
+    end
     
     if myDialogue then
         myDialogue:draw()
@@ -33,25 +47,7 @@ function love.draw()
 end
 
 function love.keypressed(key)
-    if key == "space" or key == "up" or key == "down" or key == "return" then
-        if myDialogue then
-            myDialogue:keypressed(key)
-        end
-    elseif key == "f" then
-        toggleFullscreen()
-    end
-end
-
-function toggleFullscreen()
-    isFullscreen = not isFullscreen
-    love.window.setFullscreen(isFullscreen)
-    if myDialogue and myDialogue.autoLayoutEnabled then
-        myDialogue:adjustLayout()
-    end
-end
-
-function love.resize(w, h)
-    if myDialogue and myDialogue.autoLayoutEnabled then
-        myDialogue:adjustLayout()
+    if myDialogue then
+        myDialogue:keypressed(key)
     end
 end

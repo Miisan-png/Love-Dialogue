@@ -1,22 +1,27 @@
-Parser = require "LoveDialogueParser"
+local Parser = require "LoveDialogueParser"
 local Constants = require "DialogueConstants"
 local TextEffects = require "TextEffects"
+local ThemeParser = require "ThemeParser"  
+local PortraitManager = require "PortraitManager"
 
 local LoveDialogue = {}
 
 function LoveDialogue:new(config)
+    config = config or {}  -- Ensure config exists
     local obj = {
         lines = {},
         characters = {},
         currentLine = 1,
+        selectedChoice = 1,
         isActive = false,
         font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
         nameFont = love.graphics.newFont(config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE),
-        boxColor = config.boxColor or Constants.BOX_COLOR,
-        textColor = config.textColor or Constants.TEXT_COLOR,
-        nameColor = config.nameColor or Constants.NAME_COLOR,
-        padding = config.padding or Constants.PADDING,
-        boxHeight = config.boxHeight or Constants.BOX_HEIGHT,
+        boxColor = config.boxColor or {0.1, 0.1, 0.1, 0.9},
+        textColor = config.textColor or {1, 1, 1, 1},
+        nameColor = config.nameColor or {1, 0.8, 0.2, 1},
+        padding = config.padding or 20,
+        boxHeight = config.boxHeight or 150,
+        portraitSize = config.portraitSize or 100,  -- Added this line
         typingSpeed = config.typingSpeed or Constants.TYPING_SPEED,
         typewriterTimer = 0,
         displayedText = "",
@@ -25,7 +30,7 @@ function LoveDialogue:new(config)
         fadeInDuration = config.fadeInDuration or Constants.FADE_IN_DURATION,
         fadeOutDuration = config.fadeOutDuration or Constants.FADE_OUT_DURATION,
         animationTimer = 0,
-        state = "inactive", -- Can be "inactive", "fading_in", "active", "fading_out"
+        state = "inactive",
         enableFadeIn = config.enableFadeIn or true,
         enableFadeOut = config.enableFadeOut or true,
         effects = {},
@@ -33,14 +38,19 @@ function LoveDialogue:new(config)
         selectedBranchIndex = 1,
         waitTimer = 0,
         autoLayoutEnabled = config.autoLayoutEnabled or true,
+        choiceMode = false,
+        portraitEnabled = config.portraitEnabled ~= false,
     }
     setmetatable(obj, self)
     self.__index = self
     return obj
 end
 
+
+
+
 function LoveDialogue:loadFromFile(filePath)
-    self.lines, self.characters = Parser.parseFile(filePath)
+    self.lines, self.characters, self.scenes = Parser.parseFile(filePath)
 end
 
 function LoveDialogue:start()
@@ -60,13 +70,18 @@ function LoveDialogue:setCurrentDialogue()
         self.typewriterTimer = 0
         self.effects = {}
         self.waitTimer = 0
-        self.currentBranch = currentDialogue.branches
-        self.selectedBranchIndex = 1
-
-        if self.currentBranch then
-            local branchText = currentDialogue.text
-            if branchText ~= "" then
-                self.displayedText = branchText
+        self.choiceMode = currentDialogue.choices and #currentDialogue.choices > 0
+        
+        -- If there are choices, display the full text immediately
+        if self.choiceMode then
+            self.displayedText = currentDialogue.text
+            self.selectedChoice = 1
+            
+            -- Apply effects to choices
+            for _, choice in ipairs(currentDialogue.choices) do
+                local text, effects = Parser.parseTextWithTags(choice.text)
+                choice.parsedText = text
+                choice.effects = effects
             end
         end
 
@@ -86,13 +101,131 @@ function LoveDialogue:setCurrentDialogue()
     end
 end
 
-function LoveDialogue:endDialogue()
-    self.state = self.enableFadeOut and "fading_out" or "inactive"
-    self.animationTimer = 0
-    if not self.enableFadeOut then
-        self.isActive = false
+
+
+function LoveDialogue:draw()
+    if not self.isActive then return end
+
+    local windowWidth, windowHeight = love.graphics.getDimensions()
+    local boxWidth = windowWidth - 2 * self.padding
+    
+    -- Draw dialogue box background
+    love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
+    love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+
+    -- Calculate initial text position
+    local textX = self.padding * 2
+    local textY = windowHeight - self.boxHeight - self.padding + self.padding
+    local textLimit = boxWidth - (self.padding * 3)
+
+    -- Adjust text position and limit if portrait is present
+    local hasPortrait = self.portraitEnabled and self.currentCharacter and 
+                       PortraitManager.hasPortrait(self.currentCharacter)
+    
+    if hasPortrait then
+        -- Draw portrait
+        local portrait = PortraitManager.getPortrait(self.currentCharacter)
+        local portraitX = self.padding * 2
+        local portraitY = windowHeight - self.boxHeight - self.padding + self.padding
+        
+        love.graphics.setColor(0, 0, 0, self.boxOpacity * 0.5)
+        love.graphics.rectangle("fill", portraitX, portraitY, self.portraitSize, self.portraitSize)
+        
+        love.graphics.setColor(1, 1, 1, self.boxOpacity)
+        love.graphics.draw(portrait, portraitX, portraitY, 0, 
+            self.portraitSize / portrait:getWidth(), 
+            self.portraitSize / portrait:getHeight())
+
+        -- Adjust text position for portrait
+        textX = self.padding * 3 + self.portraitSize
+        textLimit = boxWidth - self.portraitSize - (self.padding * 4)
+    end
+
+    -- Draw name (if present)
+    if self.currentCharacter and self.currentCharacter ~= "" then
+        love.graphics.setFont(self.nameFont)
+        local nameColor = self.characters[self.currentCharacter] or self.nameColor
+        love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
+                             nameColor.b or nameColor[3], self.boxOpacity)
+        love.graphics.print(self.currentCharacter, textX, textY)
+        textY = textY + self.nameFont:getHeight() + 5
+    end
+
+    -- Draw text
+    love.graphics.setFont(self.font)
+    if self.choiceMode then
+        for i, choice in ipairs(self.lines[self.currentLine].choices) do
+            local prefix = (i == self.selectedChoice) and "> " or "  "
+            local x = textX + self.font:getWidth(prefix)
+            local y = textY + (i - 1) * (self.font:getHeight() + 5)
+            
+            local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
+            love.graphics.setColor(unpack(choiceColor))
+            love.graphics.print(prefix, textX, y)
+            
+            if choice.parsedText then
+                for charIndex = 1, #choice.parsedText do
+                    local char = choice.parsedText:sub(charIndex, charIndex)
+                    local color = choiceColor
+                    local offset = {x = 0, y = 0, scale = 1}
+
+                    if choice.effects then
+                        for _, effect in ipairs(choice.effects) do
+                            if charIndex >= effect.startIndex and charIndex <= effect.endIndex then
+                                local effectFunc = TextEffects[effect.type]
+                                if effectFunc then
+                                    local effectColor, effectOffset = effectFunc(effect, char, charIndex, love.timer.getTime())
+                                    if effectColor then color = effectColor end
+                                    offset.x = offset.x + (effectOffset.x or 0)
+                                    offset.y = offset.y + (effectOffset.y or 0)
+                                    offset.scale = offset.scale * (effectOffset.scale or 1)
+                                end
+                            end
+                        end
+                    end
+
+                    love.graphics.setColor(unpack(color))
+                    love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+                    x = x + self.font:getWidth(char) * offset.scale
+                end
+            end
+        end
+    else
+        -- Draw regular text
+        local x = textX
+        local y = textY
+        local baseColor = {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity}
+        
+        for charIndex = 1, #self.displayedText do
+            local char = self.displayedText:sub(charIndex, charIndex)
+            local color = baseColor
+            local offset = {x = 0, y = 0, scale = 1}
+
+            for _, effect in ipairs(self.effects) do
+                if charIndex >= effect.startIndex and charIndex <= effect.endIndex then
+                    local effectFunc = TextEffects[effect.type]
+                    if effectFunc then
+                        local effectColor, effectOffset = effectFunc(effect, char, charIndex, love.timer.getTime())
+                        if effectColor then color = effectColor end
+                        offset.x = offset.x + (effectOffset.x or 0)
+                        offset.y = offset.y + (effectOffset.y or 0)
+                        offset.scale = offset.scale * (effectOffset.scale or 1)
+                    end
+                end
+            end
+
+            if x + self.font:getWidth(char) * offset.scale > textX + textLimit then
+                x = textX
+                y = y + self.font:getHeight() * offset.scale
+            end
+
+            love.graphics.setColor(unpack(color))
+            love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+            x = x + self.font:getWidth(char) * offset.scale
+        end
     end
 end
+
 
 function LoveDialogue:update(dt)
     if not self.isActive then return end
@@ -104,9 +237,7 @@ function LoveDialogue:update(dt)
             self.state = "active"
         end
     elseif self.state == "active" then
-        if self.currentBranch then
-            -- Branch selection mode
-        else
+        if not self.choiceMode then
             local currentFullText = self.lines[self.currentLine].text
             if self.displayedText ~= currentFullText then
                 if self.waitTimer > 0 then
@@ -118,14 +249,6 @@ function LoveDialogue:update(dt)
                         local nextCharIndex = #self.displayedText + 1
                         local nextChar = string.sub(currentFullText, nextCharIndex, nextCharIndex)
                         self.displayedText = self.displayedText .. nextChar
-
-                        -- Check for wait effect
-                        for _, effect in ipairs(self.effects) do
-                            if effect.type == "wait" and effect.startIndex == nextCharIndex then
-                                self.waitTimer = tonumber(effect.content) or 0
-                                break
-                            end
-                        end
                     end
                 end
             end
@@ -139,195 +262,161 @@ function LoveDialogue:update(dt)
         end
     end
 
-    -- Update effect timers
-    for _, effect in ipairs(self.effects) do
-        effect.timer = effect.timer + dt
-    end
-
-    -- Auto layout adjustment
     if self.autoLayoutEnabled then
         self:adjustLayout()
     end
 end
 
-function LoveDialogue:draw()
-    if not self.isActive then return end
-
-    local windowWidth, windowHeight = love.graphics.getDimensions()
-    local boxWidth = windowWidth - 2 * self.padding
-
-    -- Draw dialogue box
-    love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
-    love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
-
-    -- Draw character name
-    love.graphics.setFont(self.nameFont)
-    local nameColor = self.characters[self.currentCharacter]
-    love.graphics.setColor(nameColor.r, nameColor.g, nameColor.b, self.boxOpacity)
-    love.graphics.print(self.currentCharacter, self.padding * 2, windowHeight - self.boxHeight - self.padding + 10)
-
-    -- Draw separator line
-    love.graphics.setColor(1, 1, 1, 0.5 * self.boxOpacity)
-    love.graphics.line(
-        self.padding * 2, 
-        windowHeight - self.boxHeight - self.padding + 35,
-        boxWidth - self.padding * 2,
-        windowHeight - self.boxHeight - self.padding + 35
-    )
-    -- reset color  
-    love.graphics.setColor(1, 1, 1, 1)
-    
-    -- Draw text or branches
-    love.graphics.setFont(self.font)
-    local x = self.padding * 2
-    local y = windowHeight - self.boxHeight + self.padding + 20
-    local limit = boxWidth - self.padding * 2
-
-    if self.currentBranch then
-        -- Draw the branch text above the choices if any
-        if self.displayedText and self.displayedText ~= "" then
-            love.graphics.printf(self.displayedText, self.padding * 2, y, limit, "left")
-            y = y + self.font:getHeight() + 10 -- Move down after drawing branch text
-        end
-
-        -- Draw branching options
-        for i, branch in ipairs(self.currentBranch) do
-            local prefix = (i == self.selectedBranchIndex) and "-> " or "   "
-            local branchText = prefix .. branch.text
-            local branchX = x
-            local branchY = y + (i - 1) * 20
-
-            love.graphics.setColor(1, 1, 1, self.boxOpacity)
-            love.graphics.print(prefix, branchX, branchY)
-            branchX = branchX + self.font:getWidth(prefix)
-
-            for j = 1, #branch.text do
-                local char = branch.text:sub(j, j)
-                local charWidth = self.font:getWidth(char)
-                
-                local color = {unpack(self.textColor)}
-                local offset = {x = 0, y = 0}
-                local scale = 1
-
-                for _, effect in ipairs(branch.effects) do
-                    local textStartIndex = j + #prefix  -- Skip the arrow part
-                    if textStartIndex >= effect.startIndex and textStartIndex <= effect.endIndex + #prefix then
-                        local effectFunc = TextEffects[effect.type]
-                        if effectFunc then
-                            local effectColor, effectOffset = effectFunc(effect, char, textStartIndex, effect.timer)
-                            if effectColor then color = effectColor end
-                            offset.x = offset.x + effectOffset.x
-                            offset.y = offset.y + effectOffset.y
-                            scale = scale * (effectOffset.scale or 1)
-                        end
-                    end
-                end
-
-                love.graphics.setColor(color[1], color[2], color[3], self.boxOpacity)
-                love.graphics.print(char, branchX + offset.x, branchY + offset.y, 0, scale, scale)
-                branchX = branchX + charWidth * scale
-
-                -- Wrap text if necessary
-                if branchX > limit then
-                    branchX = x + self.font:getWidth(prefix)
-                    branchY = branchY + self.font:getHeight() * scale
-                end
-            end
-        end
-    else
-        for i = 1, #self.displayedText do
-            local char = self.displayedText:sub(i, i)
-            local charWidth = self.font:getWidth(char)
-
-            local color = {unpack(self.textColor)}
-            local offset = {x = 0, y = 0}
-            local scale = 1
-
-            for _, effect in ipairs(self.effects) do
-                if i >= effect.startIndex and i <= effect.endIndex then
-                    local effectFunc = TextEffects[effect.type]
-                    if effectFunc then
-                        local effectColor, effectOffset = effectFunc(effect, char, i, effect.timer)
-                        if effectColor then color = effectColor end
-                        offset.x = offset.x + effectOffset.x
-                        offset.y = offset.y + effectOffset.y
-                        scale = scale * (effectOffset.scale or 1)
-                    end
-                end
-            end
-
-            love.graphics.setColor(color[1], color[2], color[3], self.boxOpacity)
-            love.graphics.print(char, x + offset.x, y + offset.y, 0, scale, scale)
-            x = x + charWidth * scale
-
-            if x > limit then
-                x = self.padding * 2
-                y = y + self.font:getHeight() * scale
-            end
-        end
-    end
-end
-
-
-function LoveDialogue:adjustLayout()
-    local windowWidth, windowHeight = love.graphics.getDimensions()
-    self.boxHeight = math.floor(windowHeight * 0.25) -- 25% of screen height
-    self.padding = math.floor(windowWidth * 0.02) -- 2% of screen width
-    self.font = love.graphics.newFont(math.floor(windowHeight * 0.025)) -- Font size relative to screen height
-    self.nameFont = love.graphics.newFont(math.floor(windowHeight * 0.03))
-end
-
+-- In LoveDialogue.lua, update the advance() function to include nil checks:
 function LoveDialogue:advance()
-    if self.state == "active" then
-        if self.currentBranch then
-            local selectedBranch = self.currentBranch[self.selectedBranchIndex]
-            if selectedBranch then
-                -- Execute the branch callback if it exists
-                if selectedBranch.callback then
-                    selectedBranch.callback()  -- Call the function
-                end
-                
-                -- Proceed to the target line
-                if selectedBranch.targetLine then
-                    self.currentLine = selectedBranch.targetLine
-                    self.currentBranch = nil
-                    self:setCurrentDialogue()
-                else
-                    self:endDialogue()
-                end
+    if self.state ~= "active" then
+        if self.state == "fading_in" then
+            self.state = "active"
+            self.boxOpacity = 1
+        end
+        return
+    end
+
+    if self.choiceMode then
+        -- Add nil checks for choices
+        if not self.lines[self.currentLine] then
+            print("Warning: Current line is nil")
+            return
+        end
+        
+        if not self.lines[self.currentLine].choices then
+            print("Warning: No choices available for current line")
+            return
+        end
+
+        local selectedChoice = self.lines[self.currentLine].choices[self.selectedChoice]
+        if not selectedChoice then
+            print("Warning: Selected choice is nil")
+            return
+        end
+
+        -- Add debug print
+        print("Processing choice:", selectedChoice.text)
+        
+        if selectedChoice.callback then
+            print("Executing callback for choice:", selectedChoice.text)
+            local success, err = pcall(selectedChoice.callback)
+            if not success then
+                print("Error executing callback:", err)
             end
+        end
+        
+        if selectedChoice.target and self.scenes and self.scenes[selectedChoice.target] then
+            self.currentLine = self.scenes[selectedChoice.target]
         else
-            if self.displayedText ~= self.lines[self.currentLine].text then
-                self.displayedText = self.lines[self.currentLine].text
-            elseif self.lines[self.currentLine].isEnd then
-                self:endDialogue()  -- End the dialogue if this line has the (end) tag
+            self.currentLine = self.currentLine + 1
+        end
+        self.selectedChoice = 1
+        self:setCurrentDialogue()
+    else
+        if not self.lines[self.currentLine] then
+            print("Warning: Current line is nil")
+            return
+        end
+
+        if self.displayedText ~= self.lines[self.currentLine].text then
+            self.displayedText = self.lines[self.currentLine].text
+        else
+            if self.lines[self.currentLine].isEnd then
+                self:endDialogue()
             else
                 self.currentLine = self.currentLine + 1
                 self:setCurrentDialogue()
             end
         end
-    elseif self.state == "fading_in" then
-        self.state = "active"
-        self.boxOpacity = 1
+    end
+end
+
+-- Also update setCurrentDialogue() to include defensive checks:
+function LoveDialogue:setCurrentDialogue()
+    local currentDialogue = self.lines[self.currentLine]
+    if not currentDialogue then
+        print("Warning: No dialogue found for line", self.currentLine)
+        self:endDialogue()
+        return
+    end
+
+    self.currentCharacter = currentDialogue.character or ""
+    self.displayedText = ""
+    self.typewriterTimer = 0
+    self.effects = {}
+    self.waitTimer = 0
+    self.choiceMode = currentDialogue.choices and #currentDialogue.choices > 0
+    
+    if self.choiceMode then
+        self.displayedText = currentDialogue.text or ""
+        self.selectedChoice = 1
+        
+        if currentDialogue.choices then
+            for _, choice in ipairs(currentDialogue.choices) do
+                if choice and choice.text then
+                    local text, effects = Parser.parseTextWithTags(choice.text)
+                    choice.parsedText = text
+                    choice.effects = effects
+                end
+            end
+        end
+    end
+
+    if currentDialogue.effects then
+        for _, effect in ipairs(currentDialogue.effects) do
+            if effect then
+                table.insert(self.effects, {
+                    type = effect.type,
+                    content = effect.content,
+                    startIndex = effect.startIndex,
+                    endIndex = effect.endIndex,
+                    timer = 0
+                })
+            end
+        end
     end
 end
 
 function LoveDialogue:keypressed(key)
-    if key == "up" then
-        if self.currentBranch then
-            self.selectedBranchIndex = math.max(1, self.selectedBranchIndex - 1)
+    if not self.isActive then return end
+
+    if self.choiceMode then
+        if key == "up" then
+            self.selectedChoice = math.max(1, self.selectedChoice - 1)
+        elseif key == "down" then
+            self.selectedChoice = math.min(#self.lines[self.currentLine].choices, self.selectedChoice + 1)
+        elseif key == "return" or key == "space" then
+            self:advance()
         end
-    elseif key == "down" then
-        if self.currentBranch then
-            self.selectedBranchIndex = math.min(#self.currentBranch, self.selectedBranchIndex + 1)
+    else
+        if key == "return" or key == "space" then
+            self:advance()
         end
-    elseif key == "return" or key == "space" then
-        self:advance()
     end
+end
+
+function LoveDialogue:endDialogue()
+    self.state = self.enableFadeOut and "fading_out" or "inactive"
+    self.animationTimer = 0
+    if not self.enableFadeOut then
+        self.isActive = false
+    end
+end
+
+function LoveDialogue:adjustLayout()
+    local windowWidth, windowHeight = love.graphics.getDimensions()
+    self.boxHeight = math.floor(windowHeight * 0.25)
+    self.padding = math.floor(windowWidth * 0.02)
+    self.font = love.graphics.newFont(math.floor(windowHeight * 0.025))
+    self.nameFont = love.graphics.newFont(math.floor(windowHeight * 0.03))
 end
 
 function LoveDialogue.play(filePath, config)
     local dialogue = LoveDialogue:new(config or {})
+    if config and config.theme then
+        dialogue:loadTheme(config.theme)
+    end
     dialogue:loadFromFile(filePath)
     dialogue:start()
     return dialogue

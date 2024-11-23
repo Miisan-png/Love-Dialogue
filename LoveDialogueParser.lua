@@ -1,4 +1,6 @@
 local Parser = {}
+local CallbackHandler = require "CallbackHandler"
+local PortraitManager = require "PortraitManager"
 
 local function loadLuaFile(filePath)
     local chunk, err = loadfile(filePath)
@@ -11,7 +13,7 @@ end
 
 local function parseTextWithTags(text)
     local parsedText = ""
-    local effectsStack = {}
+    local effectsTable = {}
     local openEffects = {}
     local currentIndex = 1
 
@@ -20,17 +22,13 @@ local function parseTextWithTags(text)
         local closingStartTag, closingEndTag, closingTag = text:find("{/([^}]+)}", currentIndex)
 
         if not startTag and not closingStartTag then
-            -- No more tags found, add the rest of the text
             parsedText = parsedText .. text:sub(currentIndex)
             break
         end
 
-        -- If we find a closing tag before an opening tag, we should handle it first
         if closingStartTag and (not startTag or closingStartTag < startTag) then
-            -- Add text before the closing tag
             parsedText = parsedText .. text:sub(currentIndex, closingStartTag - 1)
 
-            -- Close the most recent effect that matches the closing tag
             local effect
             for i = #openEffects, 1, -1 do
                 if openEffects[i].type == closingTag then
@@ -41,38 +39,82 @@ local function parseTextWithTags(text)
 
             if effect then
                 effect.endIndex = #parsedText
-                table.insert(effectsStack, effect)
+                table.insert(effectsTable, effect)
             end
 
-            -- Move index past the closing tag
             currentIndex = closingEndTag + 1
         else
-            -- Add text before the opening tag
             parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
 
-            -- Push the opening tag to the stack
             table.insert(openEffects, {type = tag, content = content, startIndex = #parsedText + 1})
 
-            -- Move index past the opening tag
             currentIndex = endTag + 1
         end
     end
 
-    -- Close any remaining open tags
     for _, effect in ipairs(openEffects) do
         effect.endIndex = #parsedText
-        table.insert(effectsStack, effect)
+        table.insert(effectsTable, effect)
     end
 
-    return parsedText, effectsStack
+    return parsedText, effectsTable
 end
+
+Parser.parseTextWithTags = parseTextWithTags
 
 function Parser.parseFile(filePath)
     local lines = {}
     local characters = {}
     local currentLine = 1
+    local scenes = {}
+    local currentScene = "default"
+    local callbacks = {}
+    
+    -- Read file content
+    local fileContent = love.filesystem.read(filePath)
+    if not fileContent then
+        error("Could not read file: " .. filePath)
+        return
+    end
+    -- First pass: Handle portrait definitions
+    for line in fileContent:gmatch("[^\r\n]+") do
+        local character, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
+        if character and path then
+            PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
+        end
+    end
+    
+    -- Second pass: collect all callbacks
+    for line in fileContent:gmatch("[^\r\n]+") do
+        if line:match("^@callback%s+") then
+            local name, code = line:match("^@callback%s+(%w+)%s+(.+)$")
+            if name and code then
+                local env = setmetatable({}, {__index = _G})
+                local fn, err = load(code, "callback_" .. name, "t", env)
+                if fn then
+                    local success, result = pcall(fn)
+                    if success and type(result) == "function" then
+                        callbacks[name] = result
+                        print("Successfully loaded callback: " .. name)
+                    else
+                        print("Error executing callback " .. name .. ": " .. tostring(result))
+                    end
+                else
+                    print("Error loading callback " .. name .. ": " .. err)
+                end
+            end
+        end
+    end
+    
+    -- Third pass: parse dialogue and choices
+    local fileLines = {}
+    for line in fileContent:gmatch("[^\r\n]+") do
+        if not line:match("^@callback") then
+            table.insert(fileLines, line)
+        end
+    end
 
-    for line in love.filesystem.lines(filePath) do
+    for _, line in ipairs(fileLines) do
         local character, text = line:match("^(%S+):%s*(.+)$")
         if character and text then
             local isEnd = text:match("%(end%)$")
@@ -80,57 +122,53 @@ function Parser.parseFile(filePath)
                 text = text:gsub("%s*%(end%)$", "")
             end
 
-            local parsedLine = {character = character, text = "", isEnd = isEnd, effects = {}, branches = nil}
-            parsedLine.text, parsedLine.effects = parseTextWithTags(text)
+            local parsedText, effects = Parser.parseTextWithTags(text)
+            local parsedLine = {
+                character = character,
+                text = parsedText,
+                isEnd = isEnd,
+                effects = effects,
+                choices = {}
+            }
 
             lines[currentLine] = parsedLine
-
+            
             if not characters[character] then
                 characters[character] = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
             end
 
             currentLine = currentLine + 1
-        elseif line:match("^%[branch%d+%]") then
-            local branchText = line:match("%[branch%d+%]%s*(.-)%s*%[/branch%d+%]")
-            local targetLine = tonumber(line:match("%[target:(%d+)%]"))
-            local callbackFile = line:match("%?%s*([%w_%.]+)")
-
-            if branchText and targetLine then
-                local parsedBranchText, branchEffects = parseTextWithTags(branchText)
-
-                if not lines[currentLine - 1].branches then
-                    lines[currentLine - 1].branches = {}
+        elseif line:match("^%->") then
+            local choiceText, target, callbackName = line:match("^%->%s*(.-)%s*%[target:([%w_]+)%]%s*@?(%w*)%s*$")
+            if choiceText and target then
+                local parsedChoiceText, choiceEffects = Parser.parseTextWithTags(choiceText)
+                local callback = nil
+                if callbackName and callbackName ~= "" then
+                    callback = CallbackHandler.getCallback(callbackName)
+                    print("Parsing choice callback:", callbackName, callback ~= nil)  -- Debug print
                 end
-
-                -- Load the callback function if specified
-                local callback
-                if callbackFile then
-                    -- Construct the path to the callback file
-                    local callbackPath = love.filesystem.getRealDirectory(filePath) .. "/callbacks/" .. callbackFile
-                    if callbackPath then
-                        local loadedCallback = loadLuaFile(callbackPath)
-                        if loadedCallback and type(loadedCallback.callback) == "function" then
-                            callback = loadedCallback.callback
-                        else
-                            print("Callback function not found in file:", callbackFile)
-                        end
-                    else
-                        print("Callback file does not exist:", callbackFile)
-                    end
-                end
-
-                table.insert(lines[currentLine - 1].branches, {
-                    text = parsedBranchText, 
-                    effects = branchEffects,
-                    targetLine = targetLine, 
+                
+                local choice = {
+                    text = choiceText,
+                    parsedText = parsedChoiceText,
+                    effects = choiceEffects,
+                    target = target,
                     callback = callback
-                })
+                }
+        
+                if lines[currentLine - 1] then
+                    table.insert(lines[currentLine - 1].choices, choice)
+                end
             end
+        elseif line:match("^%[.*%]") then
+            currentScene = line:match("^%[(.*)%]")
+            scenes[currentScene] = currentLine
         end
     end
 
-    return lines, characters
+    return lines, characters, scenes
 end
+
 
 -- Debug function to print parsed information
 function Parser.printDebugInfo(lines, characters)
