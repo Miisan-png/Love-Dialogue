@@ -41,17 +41,12 @@ local CallbackHandler = require "CallbackHandler"
 ## Basic Usage
 
 ```lua
+local LoveDialogue = require "LoveDialogue"
+
+local myDialogue
+
 function love.load()
-    -- Register callbacks if needed
-    CallbackHandler.registerFile("callbacks/callbacks.lua")
-    
-    -- Create dialogue instance with custom config
-    myDialogue = LoveDialogue.play("dialogue.ld", {
-        fontSize = 18,
-        boxColor = {0.1, 0.1, 0.1, 0.9},
-        portraitEnabled = true,
-        autoLayoutEnabled = true
-    })
+    myDialogue = LoveDialogue.play("dialogue.ld")
 end
 
 function love.update(dt)
@@ -107,12 +102,6 @@ Character: You chose scene A!
 Character: You chose scene B!
 ```
 
-### Callbacks
-```
-@callback show_square function() _G.square = {x = 100, y = 100, size = 50, visible = true} end
-Character: Making a choice will trigger the callback!
--> Show square [target:next] @show_square
-```
 
 ## Configuration Options
 
