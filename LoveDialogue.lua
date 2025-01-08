@@ -1,3 +1,5 @@
+local utf8 = require("utf8")
+
 local Parser = require "LoveDialogueParser"
 local Constants = require "DialogueConstants"
 local TextEffects = require "TextEffects"
@@ -189,16 +191,16 @@ function LoveDialogue:draw()
         local y = textY
         local baseColor = {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity}
         
-        for charIndex = 1, #self.displayedText do
-            local char = self.displayedText:sub(charIndex, charIndex)
+        for pos, char in utf8.codes(self.displayedText) do
+            local char = utf8.char(char)
             local color = baseColor
             local offset = {x = 0, y = 0, scale = 1}
-
+        
             for _, effect in ipairs(self.effects) do
-                if charIndex >= effect.startIndex and charIndex <= effect.endIndex then
+                if pos >= effect.startIndex and pos <= effect.endIndex then
                     local effectFunc = TextEffects[effect.type]
                     if effectFunc then
-                        local effectColor, effectOffset = effectFunc(effect, char, charIndex, love.timer.getTime())
+                        local effectColor, effectOffset = effectFunc(effect, char, pos, love.timer.getTime())
                         if effectColor then color = effectColor end
                         offset.x = offset.x + (effectOffset.x or 0)
                         offset.y = offset.y + (effectOffset.y or 0)
@@ -239,9 +241,10 @@ function LoveDialogue:update(dt)
                     self.typewriterTimer = self.typewriterTimer + dt
                     if self.typewriterTimer >= self.typingSpeed then
                         self.typewriterTimer = 0
-                        local nextCharIndex = #self.displayedText + 1
-                        local nextChar = string.sub(currentFullText, nextCharIndex, nextCharIndex)
-                        self.displayedText = self.displayedText .. nextChar
+                        local nextCharIndex = utf8.len(self.displayedText) + 1
+                        local nextPos = utf8.offset(currentFullText, nextCharIndex)
+                        local endPos = utf8.offset(currentFullText, nextCharIndex + 1) or #currentFullText + 1
+                        self.displayedText = self.displayedText .. string.sub(currentFullText, nextPos, endPos - 1)
                     end
                 end
             end
