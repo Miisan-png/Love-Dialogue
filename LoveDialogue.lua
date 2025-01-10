@@ -194,7 +194,9 @@ function LoveDialogue:draw()
         for pos, char in utf8.codes(self.displayedText) do
             local char = utf8.char(char)
             local color = baseColor
-            local offset = {x = 0, y = 0, scale = 1}
+            local offset = {x = 0, y = 0, scale = 1, shearX = 0}
+            local extraOffsets = {}
+            local hasBold = false
         
             for _, effect in ipairs(self.effects) do
                 if pos >= effect.startIndex and pos <= effect.endIndex then
@@ -205,19 +207,41 @@ function LoveDialogue:draw()
                         offset.x = offset.x + (effectOffset.x or 0)
                         offset.y = offset.y + (effectOffset.y or 0)
                         offset.scale = offset.scale * (effectOffset.scale or 1)
+                        offset.shearX = (effectOffset.shearX or 0)
+                        offset.shearDirection = (effectOffset.shearDirection or 1)
+                        
+                        if effectOffset.offsets then
+                            for _, extraOffset in ipairs(effectOffset.offsets) do
+                                table.insert(extraOffsets, extraOffset)
+                            end
+                            hasBold = true
+                        end
                     end
                 end
             end
-
-            if x + self.font:getWidth(char) * offset.scale > textX + textLimit then
-                x = textX
-                y = y + self.font:getHeight() * offset.scale
+        
+            if hasBold then
+                for _, extraOffset in ipairs(extraOffsets) do
+                    love.graphics.push()
+                    love.graphics.translate(x + extraOffset.x + offset.x, y + extraOffset.y + offset.y)
+                    if offset.shearX ~= 0 then
+                        love.graphics.shear(offset.shearX * offset.shearDirection, 0)
+                    end
+                    love.graphics.setColor(unpack(color))
+                    love.graphics.print(char, 0, 0, 0, offset.scale, offset.scale)
+                    love.graphics.pop()
+                end
+            else
+                love.graphics.push()
+                love.graphics.translate(x + offset.x, y + offset.y)
+                if offset.shearX ~= 0 then love.graphics.shear(offset.shearX * offset.shearDirection, 0) end
+                love.graphics.setColor(unpack(color))
+                love.graphics.print(char, 0, 0, 0, offset.scale, offset.scale)
+                love.graphics.pop()
             end
-
-            love.graphics.setColor(unpack(color))
-            love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+        
             x = x + self.font:getWidth(char) * offset.scale
-        end
+        end        
     end
 end
 
