@@ -3,7 +3,7 @@
 @portrait Wiisan Assets/girl3.png
 
 [start]
-Miisan: {wave:1}Hello!{/wave} I'm Miisan, and welcome to our dialogue demo!
+Miisan: {bold:4}{wave:1}Hello!{/wave}{/bold} I'm {italic:left}Miisan{/italic}  , and  {italic:right}welcome{/italic} to our dialogue démo!
 Eiisan: And I'm Eiisan! We're here to show you the branching dialogue system.
 Wiisan: Don't forget about me! I'm Wiisan, and I'll help demonstrate the portraits and text effects.
 

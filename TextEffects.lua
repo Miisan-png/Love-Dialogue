@@ -41,4 +41,28 @@ function TextEffects.shake(effect, char, charIndex, timer)
     }
 end
 
+function TextEffects.bold(effect, char, charIndex, timer)
+    local intensity = tonumber(effect.content) or 2
+    local offsets = {}
+
+    for i = 1, intensity do
+        local angle = (charIndex + i) * 0.5
+        local x = math.cos(angle) * 1
+        local y = math.sin(angle) * 1
+
+        table.insert(offsets, {x = x, y = y})
+    end
+
+    return nil, {offsets = offsets}
+end
+
+function TextEffects.italic(effect, char, charIndex, timer)
+    local shearDirection = -1 
+    if effect.content == "left" then
+        shearDirection = 1 -- Apply left lean
+    end
+
+    return nil, {shearX = 0.5 * shearDirection}
+end
+
 return TextEffects
