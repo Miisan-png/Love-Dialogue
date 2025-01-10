@@ -35,7 +35,6 @@ LoveDialogue is a powerful and flexible dialogue system for LÖVE (Love2D) games
 
 ```lua
 local LoveDialogue = require "LoveDialogue"
-local CallbackHandler = require "CallbackHandler"
 ```
 
 ## Basic Usage
