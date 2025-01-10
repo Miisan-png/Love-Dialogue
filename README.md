@@ -22,15 +22,7 @@ LoveDialogue is a powerful and flexible dialogue system for LÖVE (Love2D) games
 ![LoveDialogue Logo](repo/Showcase_2.png)
 ## Installation
 
-1. Copy the following files into your LÖVE project directory:
-   - `LoveDialogue.lua`
-   - `LoveDialogueParser.lua`
-   - `DialogueConstants.lua`
-   - `TextEffects.lua`
-   - `PortraitManager.lua`
-   - `ThemeParser.lua`
-   - `CallbackHandler.lua`
-
+1. Copy the `LoveDialogue` folder into your LÖVE project directory:
 2. Require the module in your `main.lua`:
 
 ```lua
