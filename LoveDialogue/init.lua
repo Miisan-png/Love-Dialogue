@@ -1,12 +1,15 @@
 local utf8 = require("utf8")
+local LD_PATH = (...) .. "."
 
-local Parser = require "LoveDialogueParser"
-local Constants = require "DialogueConstants"
-local TextEffects = require "TextEffects"
-local ThemeParser = require "ThemeParser"  
-local PortraitManager = require "PortraitManager"
+
+local Parser = require(LD_PATH .. "LoveDialogueParser")
+local Constants = require(LD_PATH .. "DialogueConstants")
+local TextEffects = require(LD_PATH .. "TextEffects")
+local ThemeParser = require(LD_PATH .. "ThemeParser")  
+local PortraitManager = require(LD_PATH .. "PortraitManager")
 
 local LoveDialogue = {}
+LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
 
 function LoveDialogue:new(config)
     config = config or {} 

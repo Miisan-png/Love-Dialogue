@@ -1,13 +1,10 @@
 local LoveDialogue = require "LoveDialogue"
-local CallbackHandler = require "CallbackHandler"
-local DebugConsole = require "Debuging.DebugConsole"
-
-local myDialogue
+--local DebugConsole = require "Debuging.DebugConsole"
 
 function love.load()
-    DebugConsole.init()
+    --DebugConsole.init()
 
-    local showSquareCallback = CallbackHandler.getCallback("show_square")
+    local showSquareCallback = LoveDialogue.callbackHandler.getCallback("show_square")
         if showSquareCallback then
             print("DEBUG: show_square callback is available")
             -- Test the callback
@@ -20,13 +17,15 @@ function love.load()
         end
     
     -- Register callbacks with correct path
-    local success, result = CallbackHandler.registerFile("callbacks.lua")
+    local success, result = LoveDialogue.callbackHandler.registerFile("callbacks.lua")
     if not success then
         print("Failed to register callbacks:", result)
         return
     end
     print("Callbacks registered successfully!")
+
     
+    local myDialogue
     local dialogueSuccess, dialogueErr = pcall(function()
         myDialogue = LoveDialogue.play("dialogue.ld", {
             boxHeight = 150,
@@ -36,12 +35,6 @@ function love.load()
     
     if not dialogueSuccess then
         print("Error loading dialogue:", dialogueErr)
-    end
-end
-
-function love.update(dt)
-    if myDialogue then
-        myDialogue:update(dt)
     end
 end
 
@@ -55,6 +48,12 @@ function love.draw()
     
     if myDialogue then
         myDialogue:draw()
+    end
+end
+
+function love.update(dt)
+    if myDialogue then
+        myDialogue:update(dt)
     end
 end
 

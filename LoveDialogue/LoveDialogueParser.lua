@@ -1,6 +1,7 @@
 local Parser = {}
-local CallbackHandler = require "CallbackHandler"
-local PortraitManager = require "PortraitManager"
+local LD_PATH = (...):match('(.-)[^%.]+$')
+local CallbackHandler = require(LD_PATH .. "CallbackHandler")
+local PortraitManager = require(LD_PATH .. "PortraitManager")
 
 local function loadLuaFile(filePath)
     local chunk, err = loadfile(filePath)
