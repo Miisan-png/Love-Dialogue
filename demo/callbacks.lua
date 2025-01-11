@@ -1,4 +1,5 @@
 -- callbacks.lua
+-- Callback example to be registered in the main.lua --
 local callbacks = {}
 
 callbacks.show_square = function()

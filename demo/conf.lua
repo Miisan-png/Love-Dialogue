@@ -1,4 +1,4 @@
 function love.conf(w)
     --% Debug %--
-    w.console               =       true
+    w.console               =       true        -- preferencial for me --
 end

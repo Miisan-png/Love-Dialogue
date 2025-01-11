@@ -1,8 +1,6 @@
 local LoveDialogue = require "LoveDialogue"
 --local DebugConsole = require "Debuging.DebugConsole"
 
-local myDialogue
-
 function love.load()
     --DebugConsole.init()
 
@@ -27,6 +25,7 @@ function love.load()
     print("Callbacks registered successfully!")
 
     
+    local myDialogue
     local dialogueSuccess, dialogueErr = pcall(function()
         myDialogue = LoveDialogue.play("dialogue.ld", {
             boxHeight = 150,
@@ -36,12 +35,6 @@ function love.load()
     
     if not dialogueSuccess then
         print("Error loading dialogue:", dialogueErr)
-    end
-end
-
-function love.update(dt)
-    if myDialogue then
-        myDialogue:update(dt)
     end
 end
 
@@ -55,6 +48,12 @@ function love.draw()
     
     if myDialogue then
         myDialogue:draw()
+    end
+end
+
+function love.update(dt)
+    if myDialogue then
+        myDialogue:update(dt)
     end
 end
 
