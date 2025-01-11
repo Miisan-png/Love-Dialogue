@@ -59,6 +59,32 @@ function love.keypressed(key)
 end
 ```
 
+## Registering a callback
+Callbacks can be really useful when you want certain events run while the dialogue is running.
+example: Spawn a red square.
+
+### Basic callback usage
+1. Create lua file
+
+```lua
+-- mycallback.lua --
+local mycallback = {}
+
+mycallback["explode"] = function()
+    -- do some code here to make amazing explosions :3 --
+end
+
+return mycallback
+```
+
+2. After the `Love-Dialogue` setup in the `main.lua`, use the `registerFile` function:
+
+```lua
+local success, result = LoveDialogue.callbackHandler.registerFile("mycallback.lua")
+```
+
+check the `.ld` syntax above to see how to use callbacks after the setup.
+
 ## Dialogue File (.ld) Syntax
 
 ### Basic Dialogue
@@ -92,7 +118,6 @@ Character: You chose scene A!
 [sceneB]
 Character: You chose scene B!
 ```
-
 
 ## Configuration Options
 

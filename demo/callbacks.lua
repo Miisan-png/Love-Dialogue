@@ -2,7 +2,7 @@
 -- Callback example to be registered in the main.lua --
 local callbacks = {}
 
-callbacks.show_square = function()
+callbacks["show_square"] = function()
     _G.square = {
         x = 100,
         y = 100,
@@ -13,7 +13,7 @@ callbacks.show_square = function()
     return true
 end
 
-callbacks.hide_square = function()
+callbacks["hide_square"] = function()
     if _G.square then
         _G.square.visible = false
         print("[Callback] Square hidden")
@@ -21,7 +21,7 @@ callbacks.hide_square = function()
     return true
 end
 
-callbacks.move_square = function()
+callbacks["move_square"] = function()
     if _G.square then
         _G.square.x = _G.square.x + 50
         _G.square.y = _G.square.y + 50
