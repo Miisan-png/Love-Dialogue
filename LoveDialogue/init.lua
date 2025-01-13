@@ -13,6 +13,8 @@ LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
 
 function LoveDialogue:new(config)
     config = config or {} 
+    ---@class LoveDialogue
+    ---@field characters table<string, LD_Character>
     local obj = {
         lines = {},
         characters = {},
@@ -67,46 +69,6 @@ function LoveDialogue:start()
     self:setCurrentDialogue()
 end
 
-function LoveDialogue:setCurrentDialogue()
-    local currentDialogue = self.lines[self.currentLine]
-    if currentDialogue then
-        self.currentCharacter = currentDialogue.character
-        self.displayedText = ""
-        self.typewriterTimer = 0
-        self.effects = {}
-        self.waitTimer = 0
-        self.choiceMode = currentDialogue.choices and #currentDialogue.choices > 0
-        
-        if self.choiceMode then
-            self.displayedText = currentDialogue.text
-            self.selectedChoice = 1
-            
-            -- Apply effects to choices
-            for _, choice in ipairs(currentDialogue.choices) do
-                local text, effects = Parser.parseTextWithTags(choice.text)
-                choice.parsedText = text
-                choice.effects = effects
-            end
-        end
-
-        if currentDialogue.effects then
-            for _, effect in ipairs(currentDialogue.effects) do
-                table.insert(self.effects, {
-                    type = effect.type,
-                    content = effect.content,
-                    startIndex = effect.startIndex,
-                    endIndex = effect.endIndex,
-                    timer = 0
-                })
-            end
-        end
-    else
-        self:endDialogue()
-    end
-end
-
-
-
 function LoveDialogue:draw()
     if not self.isActive then return end
 
@@ -120,30 +82,27 @@ function LoveDialogue:draw()
     local textY = windowHeight - self.boxHeight - self.padding + self.padding
     local textLimit = boxWidth - (self.padding * 3)
 
-    local hasPortrait = self.portraitEnabled and self.currentCharacter and 
-                       PortraitManager.hasPortrait(self.currentCharacter)
+    local hasPortrait = self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait()
     
     if hasPortrait then
         -- Draw portrait
-        local portrait = PortraitManager.getPortrait(self.currentCharacter)
+        local portrait =self.characters[self.currentCharacter]:getExpression(self.currentExpression)
         local portraitX = self.padding * 2
         local portraitY = windowHeight - self.boxHeight - self.padding + self.padding
-        
+        local sw, sh = portrait.quad:getTextureDimensions()
+
         love.graphics.setColor(0, 0, 0, self.boxOpacity * 0.5)
         love.graphics.rectangle("fill", portraitX, portraitY, self.portraitSize, self.portraitSize)
         
         love.graphics.setColor(1, 1, 1, self.boxOpacity)
-        love.graphics.draw(portrait, portraitX, portraitY, 0, 
-            self.portraitSize / portrait:getWidth(), 
-            self.portraitSize / portrait:getHeight())
-
+        self.characters[self.currentCharacter]:draw(self.currentExpression, portraitX, portraitY, self.portraitSize / sw, self.portraitSize / sh)
         textX = self.padding * 3 + self.portraitSize
         textLimit = boxWidth - self.portraitSize - (self.padding * 4)
     end
 
     if self.currentCharacter and self.currentCharacter ~= "" then
         love.graphics.setFont(self.nameFont)
-        local nameColor = self.characters[self.currentCharacter] or self.nameColor
+        local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
         love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
                              nameColor.b or nameColor[3], self.boxOpacity)
         love.graphics.print(self.currentCharacter, textX, textY)
@@ -364,6 +323,7 @@ function LoveDialogue:setCurrentDialogue()
     end
 
     self.currentCharacter = currentDialogue.character or ""
+    self.currentExpression = currentDialogue.expression or "Default"
     self.displayedText = ""
     self.typewriterTimer = 0
     self.effects = {}
