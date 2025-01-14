@@ -1,21 +1,11 @@
 local LoveDialogue = require "LoveDialogue"
 --local DebugConsole = require "Debuging.DebugConsole"
 
+local myDialogue
+
 function love.load()
     --DebugConsole.init()
 
-    local showSquareCallback = LoveDialogue.callbackHandler.getCallback("show_square")
-        if showSquareCallback then
-            print("DEBUG: show_square callback is available")
-            -- Test the callback
-            showSquareCallback()
-            if _G.square and _G.square.visible then
-                print("DEBUG: Callback executed successfully")
-            end
-        else
-            print("DEBUG: show_square callback not found")
-        end
-    
     -- Register callbacks with correct path
     local success, result = LoveDialogue.callbackHandler.registerFile("callbacks.lua")
     if not success then
@@ -24,18 +14,23 @@ function love.load()
     end
     print("Callbacks registered successfully!")
 
-    
-    local myDialogue
-    local dialogueSuccess, dialogueErr = pcall(function()
-        myDialogue = LoveDialogue.play("dialogue.ld", {
-            boxHeight = 150,
-            portraitEnabled = true
-        })
-    end)
-    
-    if not dialogueSuccess then
-        print("Error loading dialogue:", dialogueErr)
+    local showSquareCallback = LoveDialogue.callbackHandler.getCallback("show_square")
+    if showSquareCallback then
+        print("DEBUG: show_square callback is available")
+        -- Test the callback
+        showSquareCallback()
+        if _G.square and _G.square.visible then
+            print("DEBUG: Callback executed successfully")
+        end
+    else
+        print("DEBUG: show_square callback not found")
     end
+
+    myDialogue = LoveDialogue.play("dialogue.ld", {
+        boxHeight = 150,
+        portraitEnabled = true
+    })
+    
 end
 
 function love.draw()
