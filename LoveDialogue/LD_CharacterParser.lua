@@ -78,6 +78,7 @@ local function parseCharacter(name, file)
                     return nil, buildPortraitError
                 end
                 portraits = portraitResult
+
                 character:setDefaultExpression(portraits[1])
             elseif expr == "@Expression" then
                 -- Tries matching "@Expression (Name) = (number or path)" and ignores whatever comes after that

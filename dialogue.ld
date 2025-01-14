@@ -1,16 +1,44 @@
-@portrait Miisan Assets/girl.png
-@portrait Eiisan Assets/girl2.png
-@portrait Wiisan Assets/girl3.png
+@portrait Miisan demo/Assets/girl.png
+@portrait Eiisan demo/Assets/girl2.png
+@portrait Wiisan demo/Assets/girl3.png
+@Character demo/Assets/characters/feni.char
 
 [start]
 Miisan: {bold:4}{wave:1}Hello!{/wave}{/bold} I'm {italic:left}Miisan{/italic}  , and  {italic:right}welcome{/italic} to our dialogue démo!
 Eiisan: And I'm Eiisan! We're here to show you the branching dialogue system.
 Wiisan: Don't forget about me! I'm Wiisan, and I'll help demonstrate the portraits and text effects.
+Feni: Hey, I'm Feni! I'll be here to show you character expressions.
 
 Miisan: Who would you like to talk to first?
 -> Chat with Eiisan [target:eiisan_branch]
 -> Talk to Wiisan [target:wiisan_branch]
 -> Ask Miisan about text effects [target:miisan_effects]
+-> Talk to Feni about its feelings [target:feni_feelings]
+
+
+[feni_feelings]
+Feni(Happy): Hi! I'm glad you want to know more about me.
+Feni: You know, people usually don't ask me how I am
+Feni(Sad): It's really rough sometimes y'know?
+Feni(Sad): ...
+Feni(Surprised): Oh! Sorry, you're aren't here to listen to me ramble.
+Feni(Determined): I'll be okay! I'm a tough cookie.
+
+[feni_loop]
+Feni: So, What ya wanna do now?
+-> Chat with the others [target:return_hub]
+-> Know more about me [target:feni_loop_2]
+
+[feni_loop_2]
+Feni: I'm always here to talk to you!
+Feni(Sad): Sadly, I'm a really simple character.
+Feni: I don't have much to say.
+Feni: You won't even see me once you return to the others. That's how things are with me.
+Feni(Determined): But I'm always here to listen!
+Feni: So, What ya wanna do now?
+-> Chat with the others [target:return_hub]
+-> Know more about me [target:feni_loop_2]
+
 
 [eiisan_branch]
 Eiisan: {color:FFD700}Oh, you picked me! Let's talk about music.{/color}

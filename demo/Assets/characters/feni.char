@@ -1,0 +1,15 @@
+@Name Feni
+-- This line is only used when using spritesheeet, otherwise, user will just refer the path below for each image
+@Portrait demo/Assets/feni.png 2 3 # rows and cols, empty ones are discarded
+
+@Expression Determined  
+@Expression Happy 
+@Expression Sad
+@Expression Neutral
+@Expression Surprised
+@Expression Default = 4
+
+
+@Color #ffffff          # Text color for this character's dialogue
+@NameColor #ffffff      # Color for character's name
+
