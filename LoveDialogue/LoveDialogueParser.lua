@@ -2,6 +2,8 @@ local Parser = {}
 local LD_PATH = (...):match('(.-)[^%.]+$')
 local CallbackHandler = require(LD_PATH .. "CallbackHandler")
 local PortraitManager = require(LD_PATH .. "PortraitManager")
+local LD_Character = require(LD_PATH .. "LD_Character")
+local CharacterParser = require(LD_PATH .. "LD_CharacterParser")
 
 local function loadLuaFile(filePath)
     local chunk, err = loadfile(filePath)
@@ -63,13 +65,18 @@ end
 
 Parser.parseTextWithTags = parseTextWithTags
 
+--- Parses a dialogue file and returns a table of lines
+--- @param filePath string
+--- @return string[]
+--- @return table<string, LD_Character>
+--- @return table
 function Parser.parseFile(filePath)
     local lines = {}
-    local characters = {}
     local currentLine = 1
     local scenes = {}
     local currentScene = "default"
     local callbacks = {}
+    local characters = {}
     
     -- Read file content
     local fileContent = love.filesystem.read(filePath)
@@ -79,9 +86,28 @@ function Parser.parseFile(filePath)
     end
     -- First pass: Handle portrait definitions
     for line in fileContent:gmatch("[^\r\n]+") do
-        local character, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
-        if character and path then
+        local characterName, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
+        if characterName and path then
+            local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
+            
+            if error or character == nil then
+                print("Error parsing character file:", error)
+            end
+            
+            characters[characterName] = character
             PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
+        end
+        local characterPath = line:match("@Character%s+([^#%s]+)")
+        if characterPath then
+            local character, error = CharacterParser.parseCharacter(characterPath)
+
+            if error or character == nil then
+                print("Error parsing character file:", error)
+            else
+                for _, c in ipairs(character) do
+                    characters[c.name] = c
+                end
+            end
         end
     end
     
@@ -118,6 +144,13 @@ function Parser.parseFile(filePath)
     for _, line in ipairs(fileLines) do
         local character, text = line:match("^(%S+):%s*(.+)$")
         if character and text then
+            -- Character can have a parenthesis with the expression, that we don't want to include
+            local characterName = character:gsub("%(.*%)$", "")
+            local expression = character:match("%((.-)%)")
+            if not characters[characterName] then
+                characters[characterName] = LD_Character.new(characterName)
+            end
+
             local isEnd = text:match("%(end%)$")
             if isEnd then
                 text = text:gsub("%s*%(end%)$", "")
@@ -125,7 +158,8 @@ function Parser.parseFile(filePath)
 
             local parsedText, effects = Parser.parseTextWithTags(text)
             local parsedLine = {
-                character = character,
+                character = characterName,
+                expression = expression or "Default",
                 text = parsedText,
                 isEnd = isEnd,
                 effects = effects,
@@ -133,10 +167,6 @@ function Parser.parseFile(filePath)
             }
 
             lines[currentLine] = parsedLine
-            
-            if not characters[character] then
-                characters[character] = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
-            end
 
             currentLine = currentLine + 1
         elseif line:match("^%->") then
