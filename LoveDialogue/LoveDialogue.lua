@@ -1,6 +1,7 @@
 local utf8 = require("utf8")
 local LD_PATH = (...):match('(.-)[^%.]+$')
 
+local font1 = love.graphics.newFont("demo/Assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)--basic font
 
 local Parser = require(LD_PATH .. "LoveDialogueParser")
 local Constants = require(LD_PATH .. "DialogueConstants")
@@ -9,6 +10,13 @@ local ThemeParser = require(LD_PATH .. "ThemeParser")
 
 local LoveDialogue = {}
 LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
+
+local function isCJK(char)
+    local codepoint = utf8.codepoint(char)
+    return (codepoint >= 0x4E00 and codepoint <= 0x9FFF) or   -- 基本汉字
+           (codepoint >= 0x3400 and codepoint <= 0x4DBF) or   -- 扩展A
+           (codepoint >= 0x20000 and codepoint <= 0x2A6DF)    -- 扩展B
+end
 
 function LoveDialogue:new(config)
     config = config or {} 
@@ -20,6 +28,9 @@ function LoveDialogue:new(config)
         currentLine = 1,
         selectedChoice = 1,
         isActive = false,
+        letterSpacingLatin = config.letterSpacingLatin or 2,  -- 西文字符间距
+        letterSpacingCJK = config.letterSpacingCJK or 8,      -- 汉字字符间距
+        lineSpacing = config.lineSpacing or 0,      -- 行间距
         font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
         nameFont = love.graphics.newFont(config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE),
         boxColor = config.boxColor or {0.1, 0.1, 0.1, 0.9},
@@ -104,7 +115,7 @@ function LoveDialogue:draw()
         local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
         love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
                              nameColor.b or nameColor[3], self.boxOpacity)
-        love.graphics.print(self.currentCharacter, textX, textY)
+        love.graphics.print(self.currentCharacter,font1, textX, textY)
         textY = textY + self.nameFont:getHeight() + 5
     end
 
@@ -113,11 +124,12 @@ function LoveDialogue:draw()
         for i, choice in ipairs(self.lines[self.currentLine].choices) do
             local prefix = (i == self.selectedChoice) and "> " or "  "
             local x = textX + self.font:getWidth(prefix)
-            local y = textY + (i - 1) * (self.font:getHeight() + 5)
+            --local y = textY + (i - 1) * (self.font:getHeight() + 5)
+            local y = textY + (i - 1) *  self.lineSpacing  -- 固定行间距
             
             local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
             love.graphics.setColor(unpack(choiceColor))
-            love.graphics.print(prefix, textX, y)
+            love.graphics.print(prefix, font1,textX, y)
             
             if choice.parsedText then
                 for charIndex = 1, #choice.parsedText do
@@ -141,8 +153,10 @@ function LoveDialogue:draw()
                     end
 
                     love.graphics.setColor(unpack(color))
-                    love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-                    x = x + self.font:getWidth(char) * offset.scale
+                    love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+                    --x = x + self.font:getWidth(char) * offset.scale
+                    local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--汉字与拉丁字母的长宽并不相同，理论上可以兼容所有语言
+                    x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
                 end
             end
         end
@@ -170,13 +184,20 @@ function LoveDialogue:draw()
                 end
             end
 
-            if x + self.font:getWidth(char) * offset.scale > textX + textLimit then
+            --if x + self.font:getWidth(char) * offset.scale > textX + textLimit then
+            --    x = textX
+            --    y = y + self.font:getHeight() * offset.scale
+            --end
+
+            local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--同样是检测是否是汉字还是拉丁文字
+
+            if x + self.font:getWidth(char) * offset.scale + charTypeSpacing > textX + textLimit then
                 x = textX
-                y = y + self.font:getHeight() * offset.scale
+                y = y + self.font:getHeight() * offset.scale + self.lineSpacing  -- 行间距
             end
 
             love.graphics.setColor(unpack(color))
-            love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+            love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
             x = x + self.font:getWidth(char) * offset.scale
         end
     end
