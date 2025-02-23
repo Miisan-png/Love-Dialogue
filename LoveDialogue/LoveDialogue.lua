@@ -1,7 +1,7 @@
 local utf8 = require("utf8")
 local LD_PATH = (...):match('(.-)[^%.]+$')
 
-local font1 = love.graphics.newFont("demo/Assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)--basic font
+local font1 = love.graphics.newFont("assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)
 
 local Parser = require(LD_PATH .. "LoveDialogueParser")
 local Constants = require(LD_PATH .. "DialogueConstants")
@@ -31,7 +31,7 @@ function LoveDialogue:new(config)
         currentLine = 1,
         selectedChoice = 1,
         isActive = false,
-        letterSpacingLatin = config.letterSpacingLatin or 2,  -- 西文字符间距
+        letterSpacingLatin = config.letterSpacingLatin or 4,  -- 西文字符间距
         letterSpacingCJK = config.letterSpacingCJK or 8,      -- 汉字字符间距
         lineSpacing = config.lineSpacing or 0,      -- 行间距
         font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
@@ -117,7 +117,7 @@ function LoveDialogue:draw()
             print("Warning: patch is not loaded.")
         end
     end
-    
+
     local textX = self.padding * 2
     local textY = windowHeight - self.boxHeight - self.padding + self.padding
     local textLimit = boxWidth - (self.padding * 3)
@@ -155,7 +155,7 @@ function LoveDialogue:draw()
             local prefix = (i == self.selectedChoice) and "> " or "  "
             local x = textX + self.font:getWidth(prefix)
             --local y = textY + (i - 1) * (self.font:getHeight() + 5)
-            local y = textY + (i - 1) *  self.lineSpacing  -- 固定行间距
+            local y = textY + (i - 1) *  self.lineSpacing  -- 行间距
             
             local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
             love.graphics.setColor(unpack(choiceColor))
@@ -185,8 +185,10 @@ function LoveDialogue:draw()
                     love.graphics.setColor(unpack(color))
                     love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
                     --x = x + self.font:getWidth(char) * offset.scale
-                    local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--汉字与拉丁字母的长宽并不相同，理论上可以兼容所有语言
+                    --x = x + self.letterSpacing  -- 固定字符间距
+                    local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
                     x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
+                    --x = x + charTypeSpacing
                 end
             end
         end
@@ -194,6 +196,7 @@ function LoveDialogue:draw()
         -- Draw regular text
         local x = textX
         local y = textY
+        
         local baseColor = {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity}
         
         for pos, char in utf8.codes(self.displayedText) do
@@ -219,7 +222,7 @@ function LoveDialogue:draw()
             --    y = y + self.font:getHeight() * offset.scale
             --end
 
-            local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--同样是检测是否是汉字还是拉丁文字
+            local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
 
             if x + self.font:getWidth(char) * offset.scale + charTypeSpacing > textX + textLimit then
                 x = textX
@@ -228,7 +231,9 @@ function LoveDialogue:draw()
 
             love.graphics.setColor(unpack(color))
             love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-            x = x + self.font:getWidth(char) * offset.scale
+            --x = x + self.font:getWidth(char) * offset.scale
+            --x = x  + self.letterSpacing
+            x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
         end
     end
 end
@@ -418,6 +423,10 @@ function LoveDialogue:adjustLayout()
     self.padding = math.floor(windowWidth * 0.02)
     self.font = love.graphics.newFont(math.floor(windowHeight * 0.025))
     self.nameFont = love.graphics.newFont(math.floor(windowHeight * 0.03))
+
+    if self.boxtype then
+        self:createNinePatchQuads()--随窗口变化而变化
+    end
 end
 
 function LoveDialogue.play(filePath, config)
