@@ -11,6 +11,8 @@ local ThemeParser = require(LD_PATH .. "ThemeParser")
 local LoveDialogue = {}
 LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
 
+local ninePatch = require(LD_PATH .. "9patch")
+
 local function isCJK(char)
     local codepoint = utf8.codepoint(char)
     return (codepoint >= 0x4E00 and codepoint <= 0x9FFF) or   -- 基本汉字
@@ -25,6 +27,7 @@ function LoveDialogue:new(config)
     local obj = {
         lines = {},
         characters = {},
+        boxtype = true, -- 0=原本的框，1=9宫格框
         currentLine = 1,
         selectedChoice = 1,
         isActive = false,
@@ -57,14 +60,32 @@ function LoveDialogue:new(config)
         autoLayoutEnabled = config.autoLayoutEnabled or true,
         choiceMode = false,
         portraitEnabled = config.portraitEnabled ~= false,
+        ninePatchImage = nil,  -- 新增：九宫格图片
+        patch = nil,           -- 新增：九宫格对象
     }
     setmetatable(obj, self)
     self.__index = self
+
+    -- 加载九宫格图片
+    if obj.boxtype == true then
+        obj.ninePatchImage = love.graphics.newImage("assets/9.png")
+        obj:createNinePatchQuads()  -- 调用修改后的方法
+    end
+
     return obj
 end
 
-
-
+function LoveDialogue:createNinePatchQuads()
+    -- 使用 ninePatch 库加载九宫格图片
+    if self.ninePatchImage then
+        -- 假设边缘宽度为 10 像素
+        local edgeWidth = 10
+        local edgeHeight = 10
+        self.patch = ninePatch.loadSameEdge(self.ninePatchImage, edgeWidth, edgeHeight)
+    else
+        print("Warning: ninePatchImage is not loaded.")
+    end
+end
 
 function LoveDialogue:loadFromFile(filePath)
     self.lines, self.characters, self.scenes = Parser.parseFile(filePath)
@@ -85,9 +106,18 @@ function LoveDialogue:draw()
     local windowWidth, windowHeight = love.graphics.getDimensions()
     local boxWidth = windowWidth - 2 * self.padding
     
-    love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
-    love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
-
+    if self.boxtype == false then
+        love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
+        love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)--绘制普通框
+    else
+        -- 使用 ninePatch 绘制九宫格对话框
+        if self.patch then
+            ninePatch.draw(self.patch, self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+        else
+            print("Warning: patch is not loaded.")
+        end
+    end
+    
     local textX = self.padding * 2
     local textY = windowHeight - self.boxHeight - self.padding + self.padding
     local textLimit = boxWidth - (self.padding * 3)
