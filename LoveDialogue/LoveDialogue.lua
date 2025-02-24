@@ -1,7 +1,7 @@
 local utf8 = require("utf8")
 local LD_PATH = (...):match('(.-)[^%.]+$')
 
-local font1 = love.graphics.newFont("demo/Assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)--basic font
+local font1 = love.graphics.newFont("assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)
 
 local Parser = require(LD_PATH .. "LoveDialogueParser")
 local Constants = require(LD_PATH .. "DialogueConstants")
@@ -10,6 +10,8 @@ local ThemeParser = require(LD_PATH .. "ThemeParser")
 
 local LoveDialogue = {}
 LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
+
+local ninePatch = require(LD_PATH .. "9patch")
 
 local function isCJK(char)
     local codepoint = utf8.codepoint(char)
@@ -25,12 +27,14 @@ function LoveDialogue:new(config)
     local obj = {
         lines = {},
         characters = {},
+        boxtype = true, -- 0=原本的框，1=9宫格框
+        character_type = true,--我不喜欢原先的角色位置，因为我一直不是这么做的。
         currentLine = 1,
         selectedChoice = 1,
         isActive = false,
-        letterSpacingLatin = config.letterSpacingLatin or 2,  -- 西文字符间距
+        letterSpacingLatin = config.letterSpacingLatin or 4,  -- 西文字符间距
         letterSpacingCJK = config.letterSpacingCJK or 8,      -- 汉字字符间距
-        lineSpacing = config.lineSpacing or 0,      -- 行间距
+        lineSpacing = config.lineSpacing or 16,      -- 行间距
         font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
         nameFont = love.graphics.newFont(config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE),
         boxColor = config.boxColor or {0.1, 0.1, 0.1, 0.9},
@@ -57,14 +61,32 @@ function LoveDialogue:new(config)
         autoLayoutEnabled = config.autoLayoutEnabled or true,
         choiceMode = false,
         portraitEnabled = config.portraitEnabled ~= false,
+        ninePatchImage = nil,  -- 新增：九宫格图片
+        patch = nil,           -- 新增：九宫格对象
     }
     setmetatable(obj, self)
     self.__index = self
+
+    -- 加载九宫格图片
+    if obj.boxtype == true then
+        obj.ninePatchImage = love.graphics.newImage("assets/9.png")
+        obj:createNinePatchQuads()  -- 调用修改后的方法
+    end
+
     return obj
 end
 
-
-
+function LoveDialogue:createNinePatchQuads()
+    -- 使用 ninePatch 库加载九宫格图片
+    if self.ninePatchImage then
+        -- 假设边缘宽度为 10 像素
+        local edgeWidth = 10
+        local edgeHeight = 10
+        self.patch = ninePatch.loadSameEdge(self.ninePatchImage, edgeWidth, edgeHeight)
+    else
+        print("Warning: ninePatchImage is not loaded.")
+    end
+end
 
 function LoveDialogue:loadFromFile(filePath)
     self.lines, self.characters, self.scenes = Parser.parseFile(filePath)
@@ -84,19 +106,51 @@ function LoveDialogue:draw()
 
     local windowWidth, windowHeight = love.graphics.getDimensions()
     local boxWidth = windowWidth - 2 * self.padding
-    
-    love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
-    love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+
+    if self.character_type then
+        if self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait() then
+            local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
+            local sw, sh = portrait.quad:getTextureDimensions()
+            
+            -- 计算原始尺寸的绘制位置
+            local portraitX = (windowWidth - sw)/2
+            --local portraitY = (windowHeight - sh)/2
+            local portraitY = windowHeight - sh
+
+            love.graphics.setColor(1, 1, 1, self.boxOpacity)
+            self.characters[self.currentCharacter]:draw(
+                self.currentExpression,
+                portraitX,
+                portraitY,
+                1,  -- (不缩放)
+                1
+            )
+        end
+    end
+
+    -- 绘制对话框（后绘制对话框以覆盖在头像上方）
+    if self.boxtype == false then
+        love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
+        love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+    else
+        if self.patch then
+            ninePatch.draw(self.patch, self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+        end
+    end
 
     local textX = self.padding * 2
     local textY = windowHeight - self.boxHeight - self.padding + self.padding
     local textLimit = boxWidth - (self.padding * 3)
 
-    local hasPortrait = self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait()
-    
-    if hasPortrait then
+    -- 根据 character_type 决定是否绘制角色头像
+    local hasPortrait = false
+    if not self.character_type then
+        hasPortrait = self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait()
+    end
+
+    if hasPortrait and not self.character_type then
         -- Draw portrait
-        local portrait =self.characters[self.currentCharacter]:getExpression(self.currentExpression)
+        local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
         local portraitX = self.padding * 2
         local portraitY = windowHeight - self.boxHeight - self.padding + self.padding
         local sw, sh = portrait.quad:getTextureDimensions()
@@ -115,7 +169,7 @@ function LoveDialogue:draw()
         local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
         love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
                              nameColor.b or nameColor[3], self.boxOpacity)
-        love.graphics.print(self.currentCharacter,font1, textX, textY)
+        love.graphics.print(self.currentCharacter, font1, textX, textY)
         textY = textY + self.nameFont:getHeight() + 5
     end
 
@@ -124,12 +178,11 @@ function LoveDialogue:draw()
         for i, choice in ipairs(self.lines[self.currentLine].choices) do
             local prefix = (i == self.selectedChoice) and "> " or "  "
             local x = textX + self.font:getWidth(prefix)
-            --local y = textY + (i - 1) * (self.font:getHeight() + 5)
-            local y = textY + (i - 1) *  self.lineSpacing  -- 固定行间距
+            local y = textY + (i - 1) * self.lineSpacing  -- 行间距
             
             local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
             love.graphics.setColor(unpack(choiceColor))
-            love.graphics.print(prefix, font1,textX, y)
+            love.graphics.print(prefix, font1, textX, y)
             
             if choice.parsedText then
                 for charIndex = 1, #choice.parsedText do
@@ -153,9 +206,8 @@ function LoveDialogue:draw()
                     end
 
                     love.graphics.setColor(unpack(color))
-                    love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-                    --x = x + self.font:getWidth(char) * offset.scale
-                    local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--汉字与拉丁字母的长宽并不相同，理论上可以兼容所有语言
+                    love.graphics.print(char, font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+                    local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
                     x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
                 end
             end
@@ -164,6 +216,7 @@ function LoveDialogue:draw()
         -- Draw regular text
         local x = textX
         local y = textY
+        
         local baseColor = {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity}
         
         for pos, char in utf8.codes(self.displayedText) do
@@ -184,25 +237,19 @@ function LoveDialogue:draw()
                 end
             end
 
-            --if x + self.font:getWidth(char) * offset.scale > textX + textLimit then
-            --    x = textX
-            --    y = y + self.font:getHeight() * offset.scale
-            --end
-
-            local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin--同样是检测是否是汉字还是拉丁文字
+            local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
 
             if x + self.font:getWidth(char) * offset.scale + charTypeSpacing > textX + textLimit then
                 x = textX
-                y = y + self.font:getHeight() * offset.scale + self.lineSpacing  -- 行间距
+                y = y + self.lineSpacing  -- 行间距
             end
 
             love.graphics.setColor(unpack(color))
-            love.graphics.print(char,font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-            x = x + self.font:getWidth(char) * offset.scale
+            love.graphics.print(char, font1, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+            x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
         end
     end
 end
-
 
 function LoveDialogue:update(dt)
     if not self.isActive then return end
@@ -374,12 +421,20 @@ function LoveDialogue:keypressed(key)
     end
 end
 
+function LoveDialogue:destroy()
+    if self.ninePatchImage then
+        self.ninePatchImage:release()
+    end
+    self.font:release()
+    self.nameFont:release()
+end
+
 function LoveDialogue:endDialogue()
-    self.state = self.enableFadeOut and "fading_out" or "inactive"
-    self.animationTimer = 0
+    self:setState(self.enableFadeOut and STATE.FADING_OUT or STATE.INACTIVE)
     if not self.enableFadeOut then
         self.isActive = false
     end
+    self:destroy()  -- 释放资源
 end
 
 function LoveDialogue:adjustLayout()
@@ -388,6 +443,10 @@ function LoveDialogue:adjustLayout()
     self.padding = math.floor(windowWidth * 0.02)
     self.font = love.graphics.newFont(math.floor(windowHeight * 0.025))
     self.nameFont = love.graphics.newFont(math.floor(windowHeight * 0.03))
+
+    if self.boxtype then
+        self:createNinePatchQuads()  -- 随窗口变化而变化
+    end
 end
 
 function LoveDialogue.play(filePath, config)
