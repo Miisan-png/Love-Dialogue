@@ -430,7 +430,7 @@ function LoveDialogue:destroy()
 end
 
 function LoveDialogue:endDialogue()
-    self:setState(self.enableFadeOut and STATE.FADING_OUT or STATE.INACTIVE)
+    self.state = self.enableFadeOut and "fading_out" or "inactive"
     if not self.enableFadeOut then
         self.isActive = false
     end
