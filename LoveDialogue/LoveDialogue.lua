@@ -1,7 +1,7 @@
 local utf8 = require("utf8")
 local LD_PATH = (...):match('(.-)[^%.]+$')
 
-local font1 = love.graphics.newFont("assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 15)
+local font1 = love.graphics.newFont("assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 16)
 
 local Parser = require(LD_PATH .. "LoveDialogueParser")
 local Constants = require(LD_PATH .. "DialogueConstants")
@@ -28,12 +28,12 @@ function LoveDialogue:new(config)
         lines = {},
         characters = {},
         boxtype = true, -- 0=原本的框，1=9宫格框
-        character_type = true,--我不喜欢原先的角色位置，因为我一直不是这么做的。
+        character_type = false,--0=原本的角色显示，1=竖直显示
         currentLine = 1,
         selectedChoice = 1,
         isActive = false,
         letterSpacingLatin = config.letterSpacingLatin or 4,  -- 西文字符间距
-        letterSpacingCJK = config.letterSpacingCJK or 8,      -- 汉字字符间距
+        letterSpacingCJK = config.letterSpacingCJK or 10,      -- 汉字字符间距
         lineSpacing = config.lineSpacing or 16,      -- 行间距
         font = love.graphics.newFont(config.fontSize or Constants.DEFAULT_FONT_SIZE),
         nameFont = love.graphics.newFont(config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE),
@@ -77,14 +77,18 @@ function LoveDialogue:new(config)
 end
 
 function LoveDialogue:createNinePatchQuads()
-    -- 使用 ninePatch 库加载九宫格图片
-    if self.ninePatchImage then
-        -- 假设边缘宽度为 10 像素
+    -- 确保只在需要时加载图片
+    if not self.ninePatchImage then
+        self.ninePatchImage = love.graphics.newImage("assets/9.png")
+    end
+    
+    -- 确认图片有效
+    if self.ninePatchImage and self.ninePatchImage:typeOf("Image") then
         local edgeWidth = 10
         local edgeHeight = 10
         self.patch = ninePatch.loadSameEdge(self.ninePatchImage, edgeWidth, edgeHeight)
     else
-        print("Warning: ninePatchImage is not loaded.")
+        print("Error: Failed to load ninePatchImage")
     end
 end
 
@@ -164,7 +168,7 @@ function LoveDialogue:draw()
         textLimit = boxWidth - self.portraitSize - (self.padding * 4)
     end
 
-    if self.currentCharacter and self.currentCharacter ~= "" then
+    if self.currentCharacter and self.currentCharacter ~= "" then--检测角色名是否非空白
         love.graphics.setFont(self.nameFont)
         local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
         love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
@@ -421,9 +425,11 @@ function LoveDialogue:keypressed(key)
     end
 end
 
+    
 function LoveDialogue:destroy()
-    if self.ninePatchImage then
-        self.ninePatchImage:release()
+    if self.ninePatchImage and self.ninePatchImage:typeOf("Image") then
+        self.ninePatchImage = nil
+        --self.ninePatchImage:release()
     end
     self.font:release()
     self.nameFont:release()
@@ -438,6 +444,11 @@ function LoveDialogue:endDialogue()
 end
 
 function LoveDialogue:adjustLayout()
+    -- 只在活跃状态下调整布局
+    if self.state == "inactive" or self.state == "fading_out" then
+        return
+    end
+
     local windowWidth, windowHeight = love.graphics.getDimensions()
     self.boxHeight = math.floor(windowHeight * 0.25)
     self.padding = math.floor(windowWidth * 0.02)
@@ -445,7 +456,7 @@ function LoveDialogue:adjustLayout()
     self.nameFont = love.graphics.newFont(math.floor(windowHeight * 0.03))
 
     if self.boxtype then
-        self:createNinePatchQuads()  -- 随窗口变化而变化
+        self:createNinePatchQuads()
     end
 end
 
