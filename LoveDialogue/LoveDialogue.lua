@@ -1,8 +1,7 @@
 local utf8 = require("utf8")
 local LD_PATH = (...):match('(.-)[^%.]+$')
 
-local font1 = love.graphics.newFont("assets/font/fusion-pixel-8px-monospaced-zh_hans.ttf", 16)
-
+local font1 = love.graphics.newFont(16)
 local Parser = require(LD_PATH .. "LoveDialogueParser")
 local Constants = require(LD_PATH .. "DialogueConstants")
 local TextEffects = require(LD_PATH .. "TextEffects")
@@ -25,6 +24,9 @@ function LoveDialogue:new(config)
     ---@class LoveDialogue
     ---@field characters table<string, LD_Character>
     local obj = {
+        ninePatchPath = config.ninePatchPath,
+        edgeWidth = config.edgeWidth or 10,
+        edgeHeight = config.edgeHeight or 10,
         lines = {},
         characters = {},
         boxtype = true, -- 0=原本的框，1=9宫格框
@@ -66,29 +68,41 @@ function LoveDialogue:new(config)
     }
     setmetatable(obj, self)
     self.__index = self
+    obj.boxtype = config.useNinePatch or false
+    obj.ninePatchPath = config.ninePatchPath
 
-    -- 加载九宫格图片
-    if obj.boxtype == true then
-        obj.ninePatchImage = love.graphics.newImage("assets/9.png")
-        obj:createNinePatchQuads()  -- 调用修改后的方法
+    if obj.boxtype and obj.ninePatchPath then
+        local success, result = pcall(love.graphics.newImage, obj.ninePatchPath)
+        if success then
+            obj.ninePatchImage = result
+            obj:createNinePatchQuads()
+        else
+            print("Warning: Failed to load 9-patch image: " .. tostring(result))
+            obj.boxtype = false -- Fall back to rectangle if image fails to load
+        end
     end
 
     return obj
 end
-
 function LoveDialogue:createNinePatchQuads()
-    -- 确保只在需要时加载图片
-    if not self.ninePatchImage then
-        self.ninePatchImage = love.graphics.newImage("assets/9.png")
+    -- Don't try to reload the image if it's missing
+    if not self.ninePatchImage and self.ninePatchPath then
+        local success, result = pcall(love.graphics.newImage, self.ninePatchPath)
+        if success then
+            self.ninePatchImage = result
+        else
+            print("Warning: Failed to load 9-patch image: " .. tostring(result))
+            return
+        end
     end
     
-    -- 确认图片有效
+    -- Confirm image validity
     if self.ninePatchImage and self.ninePatchImage:typeOf("Image") then
-        local edgeWidth = 10
-        local edgeHeight = 10
+        local edgeWidth = self.edgeWidth or 10
+        local edgeHeight = self.edgeHeight or 10
         self.patch = ninePatch.loadSameEdge(self.ninePatchImage, edgeWidth, edgeHeight)
     else
-        print("Error: Failed to load ninePatchImage")
+        print("Warning: No valid 9-patch image available")
     end
 end
 
