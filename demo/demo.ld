@@ -1,23 +1,37 @@
-Narrator: This is a simple test of the LoveDialogue system.
-Narrator: You can press SPACE or ENTER to advance dialogue.
-Narrator: Let's try some {color:FF5555}colored text{/color} and {wave:1}wavy effects{/wave}.
-Narrator: Now let's see a choice:
--> Continue testing [target:continue]
--> End the demo [target:end]
-
-[continue]
-Narrator: You chose to continue! Great choice.
-Narrator: Let's try more {shake:1}text effects{/shake}.
-Narrator: Now go back to:
--> Start [target:start]
--> End [target:end]
+@portrait Miisan demo/Assets/girl.png
+@portrait Eiisan demo/Assets/girl2.png
+@portrait Wiisan demo/Assets/girl3.png
 
 [start]
-Narrator: Back to the beginning!
-Narrator: Let's make another choice:
--> Continue [target:continue]
--> End [target:end]
+Miisan: Hello there! I'm Miisan. Welcome to the LoveDialogue engine demo!
+Eiisan: And I'm Eiisan! We're here to demonstrate how this dialogue system works.
+Wiisan: Don't forget about me! I'm Wiisan. Together we'll show you the features of this engine.
+
+Miisan: Let's start with some basic dialogue. You can advance the text by pressing SPACE or ENTER.
+Eiisan: We can use different {color:FF9900}text colors{/color} and {wave:1}special effects{/wave} too!
+Wiisan: And now, let's give you a choice:
+
+-> Learn about text effects [target:effects]
+-> Learn about dialogue choices [target:choices]
+-> End the demo [target:end]
+
+[effects]
+Miisan: Text effects are fun! You can make text {wave:1}wave like this{/wave}.
+Eiisan: Or {shake:1}shake it up a bit{/shake} for emphasis.
+Wiisan: You can use {color:FF00FF}custom colors{/color} too. Neat, right?
+Miisan: What would you like to see next?
+-> Go back to the start [target:start]
+-> End the demo [target:end]
+
+[choices]
+Eiisan: Choices allow branching dialogue paths.
+Wiisan: You navigate with the UP and DOWN arrow keys.
+Miisan: Then press ENTER or SPACE to select your choice.
+Eiisan: What would you like to do now?
+-> Go back to the start [target:start]
+-> End the demo [target:end]
 
 [end]
-Narrator: Thanks for testing the dialogue system!
-Narrator: Demo complete. (end)
+Miisan: Thanks for trying out the LoveDialogue engine!
+Eiisan: We hope you enjoyed this little demo.
+Wiisan: See you next time! (end)

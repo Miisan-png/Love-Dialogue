@@ -1,6 +1,5 @@
 local DebugConsole = {}
 local socket = require("socket.core")
---  Helper file to connect to the python console
 local udp
 
 function DebugConsole.init()
@@ -17,8 +16,6 @@ _G.print = function(...)
     for i, v in ipairs(args) do
         message = message .. tostring(v) .. "\t"
     end
-    
-    -- Send to Python console
     if udp then
         pcall(function()
             udp:send(message)
