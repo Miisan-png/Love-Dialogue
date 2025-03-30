@@ -8,8 +8,6 @@ local TextEffects = require(LD_PATH .. "TextEffects")
 local ThemeParser = require(LD_PATH .. "ThemeParser")  
 
 local LoveDialogue = {}
-LoveDialogue.callbackHandler = require(LD_PATH .. "CallbackHandler")
-
 local ninePatch = require(LD_PATH .. "9patch")
 
 local function isCJK(char)
@@ -419,17 +417,7 @@ function LoveDialogue:advance()
             return
         end
 
-        -- Add debug print
         print("Processing choice:", selectedChoice.text)
-        
-        if selectedChoice.callback then
-            print("Executing callback for choice:", selectedChoice.text)
-            local success, err = pcall(selectedChoice.callback)
-            if not success then
-                print("Error executing callback:", err)
-            end
-        end
-        
         if selectedChoice.target and self.scenes and self.scenes[selectedChoice.target] then
             self.currentLine = self.scenes[selectedChoice.target]
         else
