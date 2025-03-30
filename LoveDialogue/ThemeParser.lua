@@ -1,6 +1,5 @@
 local ThemeParser = {}
 
--- Convert property names from theme file to internal object property names
 local PROPERTY_MAP = {
     box_color = "boxColor",
     text_color = "textColor",

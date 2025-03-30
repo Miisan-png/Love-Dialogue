@@ -1,13 +1,10 @@
--- demo/main.lua
 local LoveDialogue = require("LoveDialogue")
 
 local myDialogue
 
 function love.load()
-    -- Load the font if needed
     love.graphics.setNewFont(16)
     
-    -- Configure the dialogue system
     local config = {
         boxHeight = 150,
         portraitEnabled = true,
@@ -16,10 +13,18 @@ function love.load()
         nameColor = {1, 0.8, 0.2, 1},
         typingSpeed = 0.05,
         padding = 20,
-        autoLayoutEnabled = true
+        autoLayoutEnabled = true,
+        skipKey = "f",
+        textSpeeds = {
+            slow = 0.08,
+            normal = 0.05,
+            fast = 0.02
+        },
+        initialSpeedSetting = "normal",
+        autoAdvance = false,
+        autoAdvanceDelay = 3.0
     }
     
-    -- Load the dialogue file from the demo folder
     myDialogue = LoveDialogue.play("demo/demo.ld", config)
     
     print("Dialogue loaded successfully!")
@@ -32,23 +37,22 @@ function love.update(dt)
 end
 
 function love.draw()
-    -- Background
     love.graphics.setColor(0.2, 0.2, 0.25, 1)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
     
-    -- Reset color before drawing dialogue
     love.graphics.setColor(1, 1, 1, 1)
     
-    -- Draw dialogue
     if myDialogue then
         myDialogue:draw()
     end
     
-    -- Instructions
     love.graphics.setColor(0.8, 0.8, 0.8, 0.8)
     love.graphics.print("Press SPACE/ENTER to advance dialogue", 10, 10)
     love.graphics.print("Press UP/DOWN to navigate choices", 10, 30)
-    love.graphics.print("Press ESC to quit", 10, 50)
+    love.graphics.print("Press F to skip current text", 10, 50)
+    love.graphics.print("Press T to cycle text speed", 10, 70)
+    love.graphics.print("Press A to toggle auto-advance", 10, 90)
+    love.graphics.print("Press ESC to quit", 10, 110)
 end
 
 function love.keypressed(key)

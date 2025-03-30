@@ -65,9 +65,26 @@ function LoveDialogue:new(config)
         portraitEnabled = (config.portraitEnabled ~= nil) and config.portraitEnabled or true,
         ninePatchImage = nil,  -- 新增：九宫格图片
         patch = nil,           -- 新增：九宫格对象
+        
+        -- Phase 1 features
+        skipKey = config.skipKey or "f",
+        textSpeeds = config.textSpeeds or {
+            slow = 0.08,
+            normal = 0.05,
+            fast = 0.02
+        },
+        currentSpeedSetting = config.initialSpeedSetting or "normal",
+        autoAdvance = (config.autoAdvance ~= nil) and config.autoAdvance or false,
+        autoAdvanceDelay = config.autoAdvanceDelay or 2.0, -- Seconds to wait after text is fully displayed
+        autoAdvanceTimer = 0,
     }
+    
+    -- Initialize typing speed from speed setting
+    obj.typingSpeed = obj.textSpeeds[obj.currentSpeedSetting] or Constants.TYPING_SPEED
+    
     setmetatable(obj, self)
     self.__index = self
+    
     obj.boxtype = config.useNinePatch or false
     obj.ninePatchPath = config.ninePatchPath
 
@@ -84,6 +101,7 @@ function LoveDialogue:new(config)
 
     return obj
 end
+
 function LoveDialogue:createNinePatchQuads()
     -- Don't try to reload the image if it's missing
     if not self.ninePatchImage and self.ninePatchPath then
@@ -117,6 +135,52 @@ function LoveDialogue:start()
     self.animationTimer = 0
     self.boxOpacity = self.enableFadeIn and 0 or 1
     self:setCurrentDialogue()
+end
+
+function LoveDialogue:skipCurrentText()
+    if self.isActive and self.state == "active" and not self.choiceMode then
+        local currentFullText = self.lines[self.currentLine].text
+        if self.displayedText ~= currentFullText then
+            self.displayedText = currentFullText
+            return true
+        end
+    end
+    return false
+end
+
+function LoveDialogue:setTextSpeed(speedSetting)
+    if self.textSpeeds[speedSetting] then
+        self.currentSpeedSetting = speedSetting
+        self.typingSpeed = self.textSpeeds[speedSetting]
+        return true
+    end
+    return false
+end
+
+function LoveDialogue:cycleTextSpeed()
+    local speeds = {"slow", "normal", "fast"}
+    local currentIndex = 1
+    
+    for i, speed in ipairs(speeds) do
+        if speed == self.currentSpeedSetting then
+            currentIndex = i
+            break
+        end
+    end
+    
+    currentIndex = currentIndex % #speeds + 1
+    self:setTextSpeed(speeds[currentIndex])
+    return speeds[currentIndex]
+end
+
+function LoveDialogue:toggleAutoAdvance()
+    self.autoAdvance = not self.autoAdvance
+    self.autoAdvanceTimer = 0
+    return self.autoAdvance
+end
+
+function LoveDialogue:setAutoAdvanceDelay(seconds)
+    self.autoAdvanceDelay = seconds
 end
 
 function LoveDialogue:draw()
@@ -267,6 +331,17 @@ function LoveDialogue:draw()
             x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
         end
     end
+    
+    -- Draw auto-advance indicator if enabled
+    if self.autoAdvance and self.state == "active" and self.displayedText == self.lines[self.currentLine].text then
+        local progress = self.autoAdvanceTimer / self.autoAdvanceDelay
+        love.graphics.setColor(1, 1, 1, self.boxOpacity * 0.7)
+        love.graphics.rectangle("fill", 
+            boxWidth - 40, 
+            windowHeight - self.padding - 10, 
+            30 * progress, 
+            5)
+    end
 end
 
 function LoveDialogue:update(dt)
@@ -293,6 +368,13 @@ function LoveDialogue:update(dt)
                         local endPos = utf8.offset(currentFullText, nextCharIndex + 1) or #currentFullText + 1
                         self.displayedText = self.displayedText .. string.sub(currentFullText, nextPos, endPos - 1)
                     end
+                end
+            elseif self.autoAdvance then
+                -- Text is fully displayed, start auto-advance timer
+                self.autoAdvanceTimer = self.autoAdvanceTimer + dt
+                if self.autoAdvanceTimer >= self.autoAdvanceDelay then
+                    self.autoAdvanceTimer = 0
+                    self:advance()
                 end
             end
         end
@@ -372,6 +454,9 @@ function LoveDialogue:advance()
             end
         end
     end
+    
+    -- Reset auto-advance timer when advancing
+    self.autoAdvanceTimer = 0
 end
 
 -- Also update setCurrentDialogue() to include defensive checks:
@@ -419,11 +504,30 @@ function LoveDialogue:setCurrentDialogue()
             end
         end
     end
+    
+    -- Reset auto-advance timer
+    self.autoAdvanceTimer = 0
 end
 
 function LoveDialogue:keypressed(key)
     if not self.isActive then return end
 
+    -- Process controls that work in any state
+    if key == self.skipKey then
+        if self:skipCurrentText() then
+            return
+        end
+    elseif key == "t" then
+        local newSpeed = self:cycleTextSpeed()
+        print("Text speed changed to:", newSpeed)
+        return
+    elseif key == "a" then
+        local autoStatus = self:toggleAutoAdvance()
+        print("Auto-advance " .. (autoStatus and "enabled" or "disabled"))
+        return
+    end
+
+    -- Process state-specific controls
     if self.choiceMode then
         if key == "up" then
             self.selectedChoice = math.max(1, self.selectedChoice - 1)
@@ -438,7 +542,6 @@ function LoveDialogue:keypressed(key)
         end
     end
 end
-
     
 function LoveDialogue:destroy()
     if self.ninePatchImage and self.ninePatchImage:typeOf("Image") then
