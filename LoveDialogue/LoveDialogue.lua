@@ -54,15 +54,15 @@ function LoveDialogue:new(config)
         fadeOutDuration = config.fadeOutDuration or Constants.FADE_OUT_DURATION,
         animationTimer = 0,
         state = "inactive",
-        enableFadeIn = config.enableFadeIn or true,
-        enableFadeOut = config.enableFadeOut or true,
+        enableFadeIn = (config.enableFadeIn ~= nil) and config.enableFadeIn or true,
+        enableFadeOut = (config.enableFadeOut ~= nil) and config.enableFadeOut or true,
+        autoLayoutEnabled = (config.autoLayoutEnabled ~= nil) and config.autoLayoutEnabled or true,
         effects = {},
         currentBranch = nil,
         selectedBranchIndex = 1,
         waitTimer = 0,
-        autoLayoutEnabled = config.autoLayoutEnabled or true,
         choiceMode = false,
-        portraitEnabled = config.portraitEnabled ~= false,
+        portraitEnabled = (config.portraitEnabled ~= nil) and config.portraitEnabled or true,
         ninePatchImage = nil,  -- 新增：九宫格图片
         patch = nil,           -- 新增：九宫格对象
     }
