@@ -13,7 +13,6 @@ class ModernDebugConsole:
         self.root.title("LÖVE Debug Console")
         self.root.geometry("1024x768")
         
-        # Color scheme
         self.colors = {
             'bg': '#1a1a1a',
             'text': '#e0e0e0',
@@ -46,34 +45,22 @@ class ModernDebugConsole:
         self.setup_network()
         
     def setup_ui(self):
-        # Main container
         self.main_frame = ttk.Frame(self.root, style='Modern.TFrame')
         self.main_frame.pack(expand=True, fill='both', padx=2, pady=2)
-        
-        # Toolbar with gradient effect
         self.create_toolbar()
-        
-        # Console area
         self.create_console()
-        
-        # Status bar
         self.create_status_bar()
         
     def create_toolbar(self):
         toolbar = ttk.Frame(self.main_frame, style='Toolbar.TFrame')
         toolbar.pack(fill='x', pady=1)
-        
-        # Button styles
         button_font = Font(family='Segoe UI', size=9)
-        
-        # Clear button with icon
         self.clear_btn = ttk.Button(toolbar,
                                   text="⌧ Clear",
                                   command=self.clear_console,
                                   style='Modern.TButton')
         self.clear_btn.pack(side='left', padx=5, pady=5)
         
-        # Auto-scroll with custom checkbox
         self.autoscroll_var = tk.BooleanVar(value=True)
         self.autoscroll_cb = ttk.Checkbutton(
             toolbar,
@@ -81,8 +68,6 @@ class ModernDebugConsole:
             variable=self.autoscroll_var,
             style='Modern.TCheckbutton')
         self.autoscroll_cb.pack(side='left', padx=10)
-        
-        # Search/Filter section
         search_frame = ttk.Frame(toolbar, style='Toolbar.TFrame')
         search_frame.pack(side='left', fill='x', expand=True, padx=10)
         
@@ -97,8 +82,6 @@ class ModernDebugConsole:
             textvariable=self.filter_var,
             font=('Consolas', 10))
         self.filter_entry.pack(side='left', fill='x', expand=True)
-        
-        # Message counter with modern styling
         self.counter_label = ttk.Label(
             toolbar,
             text="Messages: 0",
