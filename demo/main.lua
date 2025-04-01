@@ -1,10 +1,13 @@
 local LoveDialogue = require("LoveDialogue")
+local ResourceManager = require("LoveDialogue.ResourceManager")
+local PluginManager = require("LoveDialogue.PluginManager")  
+local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
 local myDialogue
 local demoType = "standard" 
 
 function love.load()
     love.graphics.setNewFont(16)
-    
+    PluginManager:register(DebugPlugin)
     local config = {
         boxHeight = 150,
         portraitEnabled = true,
@@ -28,12 +31,14 @@ function love.load()
             health = 100,
             hasKey = false,
             meetingCount = 0
-        }
+        },
+        plugins = {"Debug"},
     }
     local dialogueFile = demoType == "variable" and "demo/script_demo.ld" or "demo/demo.ld"
     myDialogue = LoveDialogue.play(dialogueFile, config)
     
     print("Dialogue loaded successfully!")
+    print("Press F1 to toggle debug display")
 end
 
 function love.update(dt)
@@ -85,7 +90,7 @@ function love.quit()
     if myDialogue then
         myDialogue:endDialogue()
     end
-    
+    ResourceManager:releaseAll()
     print("Shutting down demo")
     return false
 end
