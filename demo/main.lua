@@ -1,6 +1,6 @@
 local LoveDialogue = require("LoveDialogue")
-
 local myDialogue
+local demoType = "standard" 
 
 function love.load()
     love.graphics.setNewFont(16)
@@ -22,10 +22,16 @@ function love.load()
         },
         initialSpeedSetting = "normal",
         autoAdvance = false,
-        autoAdvanceDelay = 3.0
+        autoAdvanceDelay = 3.0,
+        initialVariables = {
+            playerName = "Player",
+            health = 100,
+            hasKey = false,
+            meetingCount = 0
+        }
     }
-    
-    myDialogue = LoveDialogue.play("demo/demo.ld", config)
+    local dialogueFile = demoType == "variable" and "demo/script_demo.ld" or "demo/demo.ld"
+    myDialogue = LoveDialogue.play(dialogueFile, config)
     
     print("Dialogue loaded successfully!")
 end
@@ -52,12 +58,22 @@ function love.draw()
     love.graphics.print("Press F to skip current text", 10, 50)
     love.graphics.print("Press T to cycle text speed", 10, 70)
     love.graphics.print("Press A to toggle auto-advance", 10, 90)
-    love.graphics.print("Press ESC to quit", 10, 110)
+    love.graphics.print("Press V to switch to " .. (demoType == "standard" and "variable" or "standard") .. " demo", 10, 110)
+    love.graphics.print("Press ESC to quit", 10, 130)
+    love.graphics.setColor(1, 1, 0, 0.8)
+    love.graphics.print("Current demo: " .. (demoType == "variable" and "Variable & Scripting" or "Standard"), 10, 160)
 end
 
 function love.keypressed(key)
     if key == "escape" then
         love.event.quit()
+    elseif key == "v" then
+        if myDialogue then
+            myDialogue:endDialogue()
+        end
+        
+        demoType = demoType == "standard" and "variable" or "standard"
+        love.load() 
     end
     
     if myDialogue then
