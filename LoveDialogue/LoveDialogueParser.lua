@@ -1,8 +1,8 @@
 local Parser = {}
 local LD_PATH = (...):match('(.-)[^%.]+$')
 local PortraitManager = require(LD_PATH .. "PortraitManager")
-local LD_Character = require(LD_PATH .. "LD_Character")
-local CharacterParser = require(LD_PATH .. "LD_CharacterParser")
+local LD_Character = require(LD_PATH .. "LoveCharacter")
+local CharacterParser = require(LD_PATH .. "LoveCharacterParser")
 
 local function loadLuaFile(filePath)
     local chunk, err = loadfile(filePath)

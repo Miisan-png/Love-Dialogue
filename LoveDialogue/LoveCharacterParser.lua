@@ -5,7 +5,7 @@
 --@field public expressions table
 --@field public portrait table
 local LD_PATH = (...):match('(.-)[^%.]+$')
-local LD_Character = require(LD_PATH .. "LD_Character")
+local LD_Character = require(LD_PATH .. "LoveCharacter")
 local CharacterParser = {}
 
 local function iwords(str)
