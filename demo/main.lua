@@ -1,7 +1,7 @@
 local LoveDialogue = require("LoveDialogue")
 local ResourceManager = require("LoveDialogue.ResourceManager")
 local PluginManager = require("LoveDialogue.PluginManager")  
-local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
+-- local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
 local myDialogue
 local demoType = "standard" 
 
