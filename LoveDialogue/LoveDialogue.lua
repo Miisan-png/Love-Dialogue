@@ -565,7 +565,7 @@ function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects
         -- 处理自动换行
         if textLimit and x + currentFont:getWidth(char) * offset.scale + charTypeSpacing > startX + textLimit then
             x = startX
-            y = y + currentFont:getHeight() * self.lineSpacing
+            y = y + currentFont:getHeight() + (self.lineSpacing or 0)
         end
 
         -- 绘制字符
