@@ -7,6 +7,7 @@ local Constants = require(LD_PATH .. "DialogueConstants")
 local TextEffects = require(LD_PATH .. "TextEffects")
 local ThemeParser = require(LD_PATH .. "ThemeParser")  
 local PluginManager = require(LD_PATH .. "PluginManager")  
+local FontManager = require(LD_PATH .. "FontManager")  
 
 local LoveDialogue = {}
 local ninePatch = require(LD_PATH .. "9patch")
@@ -109,6 +110,30 @@ function LoveDialogue:new(config)
     
     obj.boxtype = config.useNinePatch or false
     obj.ninePatchPath = config.ninePatchPath
+
+    -- if not FontManager.fontRegistry["default"] then
+    --     local defaultFontPath = "fonts/DefaultFont.ttf" -- 修改为实际路径
+    --     if love.filesystem.getInfo(defaultFontPath) then
+    --         FontManager.registerFont("default", defaultFontPath)
+    --     else
+    --         error("未找到默认字体文件: "..defaultFontPath)
+    --     end
+    -- end
+    
+    -- 使用安全字体加载
+    -- obj.font = ResourceManager:newFont(
+    --     instanceId, 
+    --     config.fontSize or Constants.DEFAULT_FONT_SIZE,
+    --     "default", -- 强制使用已注册名称
+    --     "main_font"
+    -- )
+
+    obj.font = ResourceManager:newFont(
+        instanceId, 
+        config.fontSize or Constants.DEFAULT_FONT_SIZE,
+        nil,  -- 不传递字体名称或路径
+        "main_font"
+    )
 
     if obj.boxtype and obj.ninePatchPath then
         obj.ninePatchImage = ResourceManager:newImage(instanceId, obj.ninePatchPath, "ninePatchImage")
@@ -405,12 +430,40 @@ function LoveDialogue:draw()
 
     -- Draw character name if present
     if self.currentCharacter and self.currentCharacter ~= "" then
-        love.graphics.setFont(self.nameFont)
-        local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
-        love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
-                             nameColor.b or nameColor[3], self.boxOpacity)
+        local charData = self.characters[self.currentCharacter]
+        local finalNameFont = self.nameFont
+        local finalFontSize = self.nameFont:getHeight()
+
+        -- 如果角色有自定义字体设置
+        if charData.nameFont then
+            -- 优先使用角色指定的大小，否则继承全局字体大小
+            finalFontSize = charData.nameFontSize or finalFontSize
+            finalNameFont = FontManager.getFontSafe(
+                charData.nameFont,
+                finalFontSize
+            )
+            -- 字体加载失败时回退全局字体
+            if not finalNameFont then
+                finalNameFont = self.nameFont
+                finalFontSize = self.nameFont:getHeight()
+            end
+        end
+
+        -- 应用字体设置
+        love.graphics.setFont(finalNameFont)
+        
+        -- 颜色设置保持不变
+        local nameColor = charData.nameColor or self.nameColor
+        love.graphics.setColor(
+            nameColor.r or nameColor[1],
+            nameColor.g or nameColor[2],
+            nameColor.b or nameColor[3],
+            self.boxOpacity
+        )
+        
+        -- 绘制名称
         love.graphics.print(self.currentCharacter, textX, textY)
-        textY = textY + self.nameFont:getHeight() + 5
+        textY = textY + finalNameFont:getHeight() + 5
     end
 
     -- Set font for dialogue text
@@ -453,17 +506,46 @@ function LoveDialogue:draw()
 end
 
 function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects, textLimit)
-    local x = startX
-    local y = startY
+    local x, y = startX, startY
+    local fontStack = { self.font } -- 字体堆栈初始化
+    local currentFont = self.font
     textLimit = textLimit or math.huge
-    
+
+    love.graphics.setFont(currentFont)
+
     for pos, char in utf8.codes(text) do
-        local char = utf8.char(char)
-        local color = {baseColor[1], baseColor[2], baseColor[3], baseColor[4]}
-        local offset = {x = 0, y = 0, scale = 1}
-    
+        char = utf8.char(char)
+        local color = { baseColor[1], baseColor[2], baseColor[3], baseColor[4] }
+        local offset = { x = 0, y = 0, scale = 1 }
+
+        -- 处理所有生效的效果
         if effects then
             for _, effect in ipairs(effects) do
+                -- 进入效果范围
+                if pos == effect.startIndex then
+                    if effect.type == "font" then
+                        local fontName, fontSize = effect.content:match("([%w_]+):(%d+)")
+                        if fontName and fontSize then
+                            local newFont = FontManager.getFont(fontName, tonumber(fontSize))
+                            table.insert(fontStack, newFont)
+                            currentFont = newFont
+                            love.graphics.setFont(currentFont)
+                        end
+                    end
+                end
+
+                -- 退出效果范围
+                if pos == effect.endIndex + 1 then
+                    if effect.type == "font" then
+                        if #fontStack > 1 then
+                            table.remove(fontStack)
+                            currentFont = fontStack[#fontStack]
+                            love.graphics.setFont(currentFont)
+                        end
+                    end
+                end
+
+                -- 应用效果（位置、颜色等）
                 if pos >= effect.startIndex and pos <= effect.endIndex then
                     local effectFunc = TextEffects[effect.type]
                     if effectFunc then
@@ -477,18 +559,19 @@ function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects
             end
         end
 
+        -- 计算字符间距
         local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
-        
-        -- Handle text wrapping if a limit is specified
-        if textLimit and x + self.font:getWidth(char) * offset.scale + charTypeSpacing > startX + textLimit then
+
+        -- 处理自动换行
+        if textLimit and x + currentFont:getWidth(char) * offset.scale + charTypeSpacing > startX + textLimit then
             x = startX
-            y = y + self.lineSpacing
+            y = y + currentFont:getHeight() * self.lineSpacing
         end
 
-        -- Draw the character with effects applied
+        -- 绘制字符
         love.graphics.setColor(unpack(color))
         love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-        x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
+        x = x + currentFont:getWidth(char) * offset.scale + charTypeSpacing
     end
 end
 

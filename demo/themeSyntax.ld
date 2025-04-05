@@ -9,3 +9,4 @@ padding: 20
 typing_speed: 0.03
 fade_in: 0.2
 fade_out: 0.2
+character_type: 1

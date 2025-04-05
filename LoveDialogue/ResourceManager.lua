@@ -1,4 +1,7 @@
 local ResourceManager = {}
+local LD_PATH = (...):match('(.-)[^%.]+$')
+local FontManager = require(LD_PATH .. "FontManager")
+
 ResourceManager.resources = {
     images = {},
     fonts = {},
@@ -59,19 +62,44 @@ end
 -- @param path string (optional): path to font file
 -- @param name string (optional): name for this resource
 -- @return love.Font or nil if creation failed
+-- File: ResourceManager.lua
 function ResourceManager:newFont(instanceId, size, path, name)
-    local success, result
-    if path then
-        success, result = pcall(love.graphics.newFont, path, size)
-    else
-        success, result = pcall(love.graphics.newFont, size)
+    -- 未提供路径时，直接使用Love2D默认字体
+    if not path then
+        local success, defaultFont = pcall(love.graphics.newFont, size)
+        if not success then
+            error(string.format(
+                "cannot load default font(love2d default font) (size: %d)\nerror msg: %s",
+                size, defaultFont
+            ))
+        end
+        -- 追踪资源并返回
+        return self:track(instanceId, "fonts", defaultFont, name or "love_default_"..tostring(size))
     end
-    
-    if success and result then
-        return self:track(instanceId, "fonts", result, name or tostring(size))
+
+    -- 如果路径是已注册的字体名称，优先通过FontManager获取
+    if FontManager.fontRegistry[path] then
+        local fontName = path
+        local font = FontManager.getFontSafe(fontName, size)
+        return self:track(instanceId, "fonts", font, name or fontName.."_"..tostring(size))
+    end
+
+    -- 尝试直接加载字体文件（兼容未注册但提供有效路径的情况）
+    local success, font = pcall(love.graphics.newFont, path, size)
+    if success then
+        -- 自动注册字体（假设路径即字体名称）
+        if not FontManager.fontRegistry[path] then
+            FontManager.registerFont(path, path)
+            print(string.format("[ResourceManager] 自动注册字体: 名称=%s, 路径=%s", path, path))
+        end
+        -- 追踪资源并返回
+        return self:track(instanceId, "fonts", font, name or path.."_"..tostring(size))
     else
-        print("ResourceManager: Failed to load font: " .. tostring(result))
-        return nil
+        -- 增强错误信息
+        error(string.format(
+            "字体加载失败\n=> 路径: %s\n=> 大小: %d\n=> LOVE2D错误: %s",
+            path, size, font
+        ))
     end
 end
 

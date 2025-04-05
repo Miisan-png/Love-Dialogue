@@ -1,9 +1,11 @@
-@portrait Miisan demo/Assets/girl.png
-@portrait Eiisan demo/Assets/girl2.png
+@font pixel_font demo/Assets/font/fusion_pixel_font.ttf
+
+@portrait Miisan demo/Assets/girl.png 
+@portrait Eiisan demo/Assets/girl2.png pixel_font
 @portrait Wiisan demo/Assets/girl3.png
 
 [start]
-Miisan: Hello there! I'm Miisan. Welcome to the LoveDialogue engine demo!
+Miisan: {font:pixel_font:16}顺便测试一下汉字是否被破坏，貌似没有。{/pixel_font}
 Eiisan: And I'm Eiisan! We're here to demonstrate how this dialogue system works.
 Wiisan: Don't forget about me! I'm Wiisan. Together we'll show you the features of this engine.
 

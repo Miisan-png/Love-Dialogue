@@ -1,7 +1,7 @@
 local LoveDialogue = require("LoveDialogue")
 local ResourceManager = require("LoveDialogue.ResourceManager")
 local PluginManager = require("LoveDialogue.PluginManager")  
--- local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
+local DebugPlugin = require("LoveDialogue.Plugins.DebugPlugin")
 local myDialogue
 local demoType = "standard" 
 
@@ -10,6 +10,8 @@ function love.load()
     PluginManager:register(DebugPlugin)
     local config = {
         boxHeight = 150,
+        
+        character_type = 1,
         portraitEnabled = true,
         boxColor = {0.1, 0.1, 0.2, 0.9},
         textColor = {1, 1, 1, 1},
@@ -17,7 +19,7 @@ function love.load()
         typingSpeed = 0.05,
         padding = 20,
         autoLayoutEnabled = true,
-        skipKey = "f",
+        skipKey = "x",
         textSpeeds = {
             slow = 0.08,
             normal = 0.05,
