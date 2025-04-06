@@ -194,14 +194,22 @@ end
 
 -- Parses a character file and returns a LD_Character object
 -- @returns LD_Character, string
-function CharacterParser.parseCharacterFromPortrait(name, filename)
-    local portrait, error = buildPortrait(filename, 1, 1)
+-- function CharacterParser.parseCharacterFromPortrait(name, filename)
+--     local portrait, error = buildPortrait(filename, 1, 1)
 
+--     if error or portrait == nil then
+--         return nil, error or "Could not load portrait"
+--     end
+
+--     return LD_Character.new(name, portrait[1]), nil
+-- end
+
+function CharacterParser.parseCharacterFromPortrait(name, filename, instanceId)
+    local portrait, error = buildPortrait(filename, 1, 1)
     if error or portrait == nil then
         return nil, error or "Could not load portrait"
     end
-
-    return LD_Character.new(name, portrait[1]), nil
+    return LD_Character.new(name, portrait[1], instanceId), nil
 end
 
 return CharacterParser

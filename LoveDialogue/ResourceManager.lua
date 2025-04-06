@@ -4,9 +4,9 @@ local FontManager = require(LD_PATH .. "FontManager")
 
 ResourceManager.resources = {
     images = {},
-    fonts = {},
+    -- fonts = {},
     quads = {},
-    sounds = {},  -- For future sound support (not yet LOL)
+    -- sounds = {},  -- For future sound support (not yet LOL)
     custom = {}  
 }
 
@@ -168,6 +168,58 @@ function ResourceManager:releaseAll()
     end
     for resourceType, _ in pairs(self.resources) do
         self.resources[resourceType] = {}
+    end
+end
+
+function ResourceManager:loadFonts(instanceId, directory)
+    local files = love.filesystem.getDirectoryItems(directory)
+    for _, file in ipairs(files) do
+        if file:match("%.ttf$") then
+            local fullPath = directory .. "/" .. file
+            local font = self:newFont(instanceId, 12, fullPath, file)
+            if font then
+                self.fonts[file] = font
+                print("Loaded font: " .. file .. " at " .. fullPath)
+            else
+                print("Warning: Failed to load font: " .. fullPath)
+            end
+        end
+    end
+end
+
+-- function ResourceManager:newSound(instanceId, path, name, sourceType)
+--     sourceType = sourceType or "static"
+--     local success, result = pcall(love.audio.newSource, path, sourceType)
+--     if success and result then
+--         return self:track(instanceId, "sounds", result, name or path)
+--     else
+--         print("ResourceManager: Failed to load sound: " .. tostring(result))
+--         return nil
+--     end
+-- end
+
+function ResourceManager:newSound(instanceId, path, name)
+    local success, result = pcall(love.audio.newSource, path, "static")
+    if success and result then
+        return self:track(instanceId, "sounds", result, name or path)
+    else
+        print("ResourceManager: Failed to load sound " .. path .. ": " .. tostring(result))
+        return nil
+    end
+end
+
+function ResourceManager:loadSounds(instanceId, directory)
+    local files = love.filesystem.getDirectoryItems(directory)
+    for _, file in ipairs(files) do
+        if file:match("%.wav$") or file:match("%.mp3$") or file:match("%.ogg$") then
+            local fullPath = directory .. "/" .. file
+            local sound = self:newSound(instanceId, fullPath, file)
+            if sound then
+                self.sounds[file] = sound
+            else
+                print("Warning: Failed to load sound: " .. fullPath)
+            end
+        end
     end
 end
 

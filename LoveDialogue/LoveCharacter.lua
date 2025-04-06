@@ -21,6 +21,18 @@ local ResourceManager = require(LD_PATH .. "ResourceManager")
 -- @param defaultExpression Expression or nil
 -- @param instanceId string or nil: The ID of the dialogue instance that owns this character
 -- @return LD_Character
+-- function LD_Character.new(name, defaultExpression, instanceId)
+--     local self = setmetatable({}, LD_Character)
+--     self.name = name or ""
+--     self.color = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
+--     self.nameColor = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
+--     self.expressions = {
+--         Default = defaultExpression
+--     }
+--     self.instanceId = instanceId -- Track the owner for resource management
+--     return self
+-- end
+
 function LD_Character.new(name, defaultExpression, instanceId)
     local self = setmetatable({}, LD_Character)
     self.name = name or ""

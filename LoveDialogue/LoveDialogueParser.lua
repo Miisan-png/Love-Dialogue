@@ -99,6 +99,19 @@ Parser.parseTextWithTags = parseTextWithTags
 --- @return table<string, LD_Character>
 --- @return table
 function Parser.parseFile(filePath)
+    -- local lines = {}
+    -- local currentLine = 1
+    -- local scenes = {}
+    -- local currentScene = "default"
+    -- local characters = {}
+    
+    -- -- Read file content
+    -- local fileContent = love.filesystem.read(filePath)
+    -- if not fileContent then
+    --     error("Could not read file: " .. filePath)
+    --     return
+    -- end
+
     local lines = {}
     local currentLine = 1
     local scenes = {}

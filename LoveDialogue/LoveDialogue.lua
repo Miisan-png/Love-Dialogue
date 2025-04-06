@@ -12,6 +12,9 @@ local FontManager = require(LD_PATH .. "FontManager")
 local LoveDialogue = {}
 local ninePatch = require(LD_PATH .. "9patch")
 
+local nameFont = character.nameFont or love.graphics.newFont(12)
+local textFont = character.font or love.graphics.newFont(12)
+
 local function isCJK(char)
     local codepoint = utf8.codepoint(char)
     return (codepoint >= 0x4E00 and codepoint <= 0x9FFF) or   -- 基本汉字
@@ -354,6 +357,129 @@ function LoveDialogue:update(dt)
     self:triggerPluginEvent("onAfterUpdate", modifiedDt)
 end
 
+-- function LoveDialogue:draw()
+--     if not self.isActive then return end
+    
+--     -- Let plugins modify drawing if needed
+--     self:triggerPluginEvent("onBeforeDraw")
+    
+--     local windowWidth, windowHeight = love.graphics.getDimensions()
+--     local boxWidth = windowWidth - 2 * self.padding
+
+--     -- Draw character portrait for vertical mode
+--     if self.character_type then
+--         if self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait() then
+--             local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
+--             local sw, sh = portrait.quad:getTextureDimensions()
+            
+--             -- Calculate position
+--             local portraitX = (windowWidth - sw)/2
+--             local portraitY = windowHeight - sh
+
+--             love.graphics.setColor(1, 1, 1, self.boxOpacity)
+--             self.characters[self.currentCharacter]:draw(
+--                 self.currentExpression,
+--                 portraitX,
+--                 portraitY,
+--                 1,
+--                 1
+--             )
+--         end
+--     end
+
+--     -- Draw dialogue box
+--     if self.boxtype == false then
+--         love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
+--         love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+--     else
+--         if self.patch then
+--             -- Set color for 9-patch drawing
+--             love.graphics.setColor(1, 1, 1, self.boxOpacity)
+--             ninePatch.draw(self.patch, self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
+--         end
+--     end
+
+--     local textX = self.padding * 2
+--     local textY = windowHeight - self.boxHeight - self.padding + self.padding
+--     local textLimit = boxWidth - (self.padding * 3)
+
+--     -- Determine portrait visibility based on character_type
+--     local hasPortrait = false
+--     if not self.character_type then
+--         hasPortrait = self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait()
+--     end
+
+--     -- Draw horizontal portrait mode
+--     if hasPortrait and not self.character_type then
+--         local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
+--         local portraitX = self.padding * 2
+--         local portraitY = windowHeight - self.boxHeight - self.padding + self.padding
+--         local sw, sh = portrait.quad:getTextureDimensions()
+
+--         love.graphics.setColor(0, 0, 0, self.boxOpacity * 0.5)
+--         love.graphics.rectangle("fill", portraitX, portraitY, self.portraitSize, self.portraitSize)
+        
+--         love.graphics.setColor(1, 1, 1, self.boxOpacity)
+--         self.characters[self.currentCharacter]:draw(
+--             self.currentExpression, 
+--             portraitX, 
+--             portraitY, 
+--             self.portraitSize / sw, 
+--             self.portraitSize / sh
+--         )
+--         textX = self.padding * 3 + self.portraitSize
+--         textLimit = boxWidth - self.portraitSize - (self.padding * 4)
+--     end
+
+--     -- Draw character name if present
+--     if self.currentCharacter and self.currentCharacter ~= "" then
+--         -- love.graphics.setFont(self.nameFont)
+--         local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
+--         love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
+--                              nameColor.b or nameColor[3], self.boxOpacity)
+--         love.graphics.print(self.currentCharacter,nameFont, textX, textY)
+--         textY = textY + self.nameFont:getHeight() + 5
+--     end
+
+--     -- Set font for dialogue text
+--     -- love.graphics.setFont(self.font)
+    
+--     -- Draw choices or text based on mode
+--     if self.choiceMode then
+--         for i, choice in ipairs(self.lines[self.currentLine].choices) do
+--             local prefix = (i == self.selectedChoice) and "> " or "  "
+--             local x = textX + self.font:getWidth(prefix)
+--             local y = textY + (i - 1) * self.lineSpacing
+            
+--             local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
+--             love.graphics.setColor(unpack(choiceColor))
+--             love.graphics.print(prefix, textX, y)
+            
+--             if choice.parsedText then
+--                 self:drawFormattedText(choice.parsedText, x, y, choiceColor, choice.effects)
+--             end
+--         end
+--     else
+--         -- Draw regular text with formatting and effects
+--         self:drawFormattedText(self.displayedText, textX, textY, 
+--             {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity},
+--             self.effects, textLimit)
+--     end
+    
+--     -- Draw auto-advance indicator if enabled
+--     if self.autoAdvance and self.state == "active" and self.displayedText == self.lines[self.currentLine].text then
+--         local progress = self.autoAdvanceTimer / self.autoAdvanceDelay
+--         love.graphics.setColor(1, 1, 1, self.boxOpacity * 0.7)
+--         love.graphics.rectangle("fill", 
+--             boxWidth - 40, 
+--             windowHeight - self.padding - 10, 
+--             30 * progress, 
+--             5)
+--     end
+    
+--     self:triggerPluginEvent("onAfterDraw")
+-- end
+
 function LoveDialogue:draw()
     if not self.isActive then return end
     
@@ -466,27 +592,25 @@ function LoveDialogue:draw()
         textY = textY + finalNameFont:getHeight() + 5
     end
 
-    -- Set font for dialogue text
-    love.graphics.setFont(self.font)
-    
     -- Draw choices or text based on mode
+    local textFont = self.currentCharacter and self.characters[self.currentCharacter].font or self.font or love.graphics.newFont(12)
     if self.choiceMode then
         for i, choice in ipairs(self.lines[self.currentLine].choices) do
             local prefix = (i == self.selectedChoice) and "> " or "  "
-            local x = textX + self.font:getWidth(prefix)
+            local x = textX + textFont:getWidth(prefix)
             local y = textY + (i - 1) * self.lineSpacing
             
             local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
             love.graphics.setColor(unpack(choiceColor))
-            love.graphics.print(prefix, textX, y)
+            love.graphics.print(prefix, textFont, textX, y)
             
             if choice.parsedText then
-                self:drawFormattedText(choice.parsedText, x, y, choiceColor, choice.effects)
+                self:drawFormattedText(choice.parsedText, textFont, x, y, choiceColor, choice.effects)
             end
         end
     else
         -- Draw regular text with formatting and effects
-        self:drawFormattedText(self.displayedText, textX, textY, 
+        self:drawFormattedText(self.displayedText, textFont, textX, textY, 
             {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity},
             self.effects, textLimit)
     end
@@ -574,6 +698,47 @@ function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects
         x = x + currentFont:getWidth(char) * offset.scale + charTypeSpacing
     end
 end
+
+-- function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects, textLimit)
+--     local x = startX
+--     local y = startY
+    
+--     textLimit = textLimit or math.huge
+    
+--     for pos, char in utf8.codes(text) do
+--         local char = utf8.char(char)
+--         local color = {baseColor[1], baseColor[2], baseColor[3], baseColor[4]}
+--         local offset = {x = 0, y = 0, scale = 1}
+    
+--         if effects then
+--             for _, effect in ipairs(effects) do
+--                 if pos >= effect.startIndex and pos <= effect.endIndex then
+--                     local effectFunc = TextEffects[effect.type]
+--                     if effectFunc then
+--                         local effectColor, effectOffset = effectFunc(effect, char, pos, love.timer.getTime())
+--                         if effectColor then color = effectColor end
+--                         offset.x = offset.x + (effectOffset.x or 0)
+--                         offset.y = offset.y + (effectOffset.y or 0)
+--                         offset.scale = offset.scale * (effectOffset.scale or 1)
+--                     end
+--                 end
+--             end
+--         end
+
+--         local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
+        
+--         -- Handle text wrapping if a limit is specified
+--         if textLimit and x + self.font:getWidth(char) * offset.scale + charTypeSpacing > startX + textLimit then
+--             x = startX
+--             y = y + self.lineSpacing
+--         end
+
+--         -- Draw the character with effects applied
+--         love.graphics.setColor(unpack(color))
+--         love.graphics.print(char,textFont, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
+--         x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
+--     end
+-- end
 
 function LoveDialogue:advance()
     if self.state ~= "active" then
