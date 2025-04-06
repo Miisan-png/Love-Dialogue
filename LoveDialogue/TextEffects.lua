@@ -1,6 +1,6 @@
 local TextEffects = {}
 local LD_PATH = (...):match('(.-)[^%.]+$')
-local FontManager = require(LD_PATH .. "FontManager")
+local ResourceManager = require(LD_PATH .. "ResourceManager")
 
 function TextEffects.color(effect, char, charIndex, timer)
     local r, g, b = effect.content:match("(%x%x)(%x%x)(%x%x)")
@@ -67,14 +67,22 @@ function TextEffects.italic(effect, char, charIndex, timer)
     return nil, {shearX = 0.5 * shearDirection}
 end
 
-function TextEffects.font(effect, char, charIndex, timer)
-    local fontName, fontSize = effect.content:match("([%w_]+):(%d+)")
-    if fontName and fontSize then
-        -- 使用安全方法，失败时返回默认字体
-        local font = FontManager.getFontSafe(fontName, tonumber(fontSize))
-        return nil, { font = font }
+-- function TextEffects.sound(effect, char, charIndex, timer)
+--     local filename = effect.content
+--     local sound = ResourceManager.sounds[filename]
+--     if sound and charIndex == effect.startIndex then
+--         sound:play()
+--     end
+--     return nil, {x = 0, y = 0, scale = 1}
+-- end
+
+function TextEffects.sound(effect, char, charIndex, timer)
+    local sound = ResourceManager:get("sounds", effect.content)
+    if sound then
+        sound:stop()
+        sound:play()
     end
-    return nil, {}
+    return nil, {x = 0, y = 0, scale = 1}
 end
 
 return TextEffects

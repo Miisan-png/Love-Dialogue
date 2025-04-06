@@ -8,8 +8,8 @@
 ---@field public nameColor table
 ---@field public expressions table<string, Expression>
 ---@field public instanceId string|nil Owner dialogue instance for resource tracking
----@field public defaultExpression string
----@field public nameFont love.Font|nil
+---@field public nameFont love.Font|nil 角色名称的字体
+---@field public font love.Font|nil 正文的字体
 local LD_Character = {}
 LD_Character.__index = LD_Character
 
@@ -36,17 +36,14 @@ local ResourceManager = require(LD_PATH .. "ResourceManager")
 function LD_Character.new(name, defaultExpression, instanceId)
     local self = setmetatable({}, LD_Character)
     self.name = name or ""
-    self.color = {r = 1, g = 1, b = 1, a = 1}           -- Default white
-    self.nameColor = {r = 1, g = 0.8, b = 0.2, a = 1}   -- Default name color
-    self.expressions = {}
-    self.defaultExpression = "Default"
-    self.nameFont = nil                  -- New: character name font
-    self.instanceId = instanceId         -- Track the owner for resource management
-    
-    if defaultExpression then
-        self.expressions["Default"] = defaultExpression
-    end
-    
+    self.color = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
+    self.nameColor = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
+    self.expressions = {
+        Default = defaultExpression
+    }
+    self.instanceId = instanceId
+    self.nameFont = nil  -- 名称字体，默认为 nil
+    self.font = nil      -- 正文字体，默认为 nil
     return self
 end
 
@@ -67,7 +64,7 @@ function LD_Character:draw(expressionName, posX, posY, sizeX, sizeY)
 end
 
 function LD_Character:getExpression(name)
-    return self.expressions[name] or self.expressions[self.defaultExpression]
+    return self.expressions[name] or self.expressions.Default
 end
 
 -- Check if the character has a portrait
@@ -141,7 +138,7 @@ end
 -- Set the default expression for the character
 -- @param expression Expression
 function LD_Character:setDefaultExpression(expression)
-    self.expressions["Default"] = expression
+    self.expressions.Default = expression
 end
 
 -- Clear all expressions (useful for cleanupp)
@@ -155,16 +152,6 @@ function LD_Character:setInstanceId(instanceId)
     self.instanceId = instanceId
 end
 
--- Set the name font for the character
--- @param font love.Font
-function LD_Character:setNameFont(font)
-    self.nameFont = font
-end
 
--- Get the name font for the character
--- @return love.Font|nil
-function LD_Character:getNameFont()
-    return self.nameFont
-end
 
 return LD_Character

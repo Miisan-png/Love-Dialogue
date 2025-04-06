@@ -6,7 +6,7 @@ local DebugPlugin = {
 }
 function DebugPlugin.init(dialogue, pluginData)
     pluginData.enabled = true
-    pluginData.position = {x = 470, y = 10}
+    pluginData.position = {x = 10, y = 10}
     pluginData.stats = {
         lineCount = 0,
         charCount = 0,

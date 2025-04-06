@@ -3,7 +3,7 @@ local LD_PATH = (...):match('(.-)[^%.]+$')
 local PortraitManager = require(LD_PATH .. "PortraitManager")
 local LD_Character = require(LD_PATH .. "LoveCharacter")
 local CharacterParser = require(LD_PATH .. "LoveCharacterParser")
-local FontManager = require(LD_PATH .. "FontManager")
+local ResourceManager = require(LD_PATH .. "ResourceManager")
 
 local function loadLuaFile(filePath)
     local chunk, err = loadfile(filePath)
@@ -21,70 +21,56 @@ local function parseTextWithTags(text)
     local currentIndex = 1
 
     while currentIndex <= #text do
-        -- 解析开始标签 {font:name:size}
         local startTag, endTag, tag, content = text:find("{([^:}]+):([^}]*)}", currentIndex)
-        -- 解析结束标签 {/font}
+        local soundStartTag, soundEndTag, soundFile = text:find("{sound:([^}]+)}", currentIndex)
         local closingStartTag, closingEndTag, closingTag = text:find("{/([^}]+)}", currentIndex)
-
-        -- 优先处理闭合标签
-        if closingStartTag and (not startTag or closingStartTag < startTag) then
-            parsedText = parsedText .. text:sub(currentIndex, closingStartTag - 1)
+        
+        if soundStartTag and (not startTag or soundStartTag < startTag) then
+            parsedText = parsedText .. text:sub(currentIndex, soundStartTag - 1)
             
-            -- 处理字体闭合标签
-            if closingTag == "font" then
-                for i = #openEffects, 1, -1 do
-                    if openEffects[i].type == "font" then
-                        local effect = table.remove(openEffects, i)
-                        effect.endIndex = #parsedText
-                        table.insert(effectsTable, effect)
-                        break
-                    end
-                end
-            end
-            currentIndex = closingEndTag + 1
-
-        -- 处理字体开始标签
-        elseif startTag and tag == "font" then
-            parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
-            local fontName, fontSize = content:match("([%w_]+):(%d+)")
-            if fontName and fontSize then
-                table.insert(openEffects, {
-                    type = "font",
-                    content = content,
-                    startIndex = #parsedText + 1,
-                    endIndex = nil -- 等待闭合标签
-                })
-            end
-            currentIndex = endTag + 1
-
-        -- 其他标签处理（如颜色、波浪效果等）
-        elseif startTag then
-            parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
-            table.insert(openEffects, {
-                type = tag,
-                content = content,
-                startIndex = #parsedText + 1
+            table.insert(effectsTable, {
+                type = "sound",
+                content = soundFile,
+                startIndex = #parsedText + 1,
+                endIndex = #parsedText + 1  -- 音效立即触发，所以起止索引相同
             })
-            currentIndex = endTag + 1
+            
+            currentIndex = soundEndTag + 1
+        end
 
-        else
+        if not startTag and not closingStartTag then
             parsedText = parsedText .. text:sub(currentIndex)
             break
         end
-    end
 
-    -- 处理未闭合的标签
-    for _, effect in ipairs(openEffects) do
-        effect.endIndex = #parsedText
-        -- 自动处理字体标签的覆盖范围
-        if effect.type == "font" then
-            for _, otherEffect in ipairs(effectsTable) do
-                if otherEffect.type == "font" and otherEffect.startIndex > effect.startIndex then
-                    effect.endIndex = otherEffect.startIndex - 1
+        if closingStartTag and (not startTag or closingStartTag < startTag) then
+            parsedText = parsedText .. text:sub(currentIndex, closingStartTag - 1)
+
+            local effect
+            for i = #openEffects, 1, -1 do
+                if openEffects[i].type == closingTag then
+                    effect = table.remove(openEffects, i)
                     break
                 end
             end
+
+            if effect then
+                effect.endIndex = #parsedText
+                table.insert(effectsTable, effect)
+            end
+
+            currentIndex = closingEndTag + 1
+        else
+            parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
+
+            table.insert(openEffects, {type = tag, content = content, startIndex = #parsedText + 1})
+
+            currentIndex = endTag + 1
         end
+    end
+
+    for _, effect in ipairs(openEffects) do
+        effect.endIndex = #parsedText
         table.insert(effectsTable, effect)
     end
 
@@ -118,60 +104,117 @@ function Parser.parseFile(filePath)
     local currentScene = "default"
     local characters = {}
     
+    -- Read file content
     local fileContent = love.filesystem.read(filePath)
     if not fileContent then
         error("Could not read file: " .. filePath)
         return
     end
     
-    -- 第一遍解析：处理@指令
+    -- 处理 @resource 指令
+    local resourcePaths = {font = {}, sound = {}}
     for line in fileContent:gmatch("[^\r\n]+") do
-        -- 处理字体注册
-        local fontName, fontPath = line:match("^@font%s+(%S+)%s+(.+)")
-        if fontName and fontPath then
-            FontManager.registerFont(fontName, fontPath)
-        end
-        
-        -- local characterName, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
-        -- if characterName and path then
-        --     local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
-        --     if error or character == nil then
-        --         print("Error parsing character file:", error)
-        --     end
-        --     characters[characterName] = character
-        --     PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
-        -- end
-        
-        local characterName, path, fontName = line:match("^@portrait%s+(%S+)%s+(%S+)%s*(%S*)")
-        if characterName and path then
-            local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
-            if error or character == nil then
-                print("Error parsing character file:", error)
-            else
-                -- 设置角色名称字体（如果指定）
-                if fontName and fontName ~= "" then
-                    character.nameFont = fontName
-                    print(string.format("[Parser] 角色 %s 名称字体设置为: %s", characterName, fontName))
-                end
-                characters[characterName] = character
-                PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
+        local resourceType, path = line:match("^@resource%s+(%w+)%s+(.+)$")
+        if resourceType and path then
+            if resourceType == "font" then
+                table.insert(resourcePaths.font, path)
+            elseif resourceType == "sound" then
+                table.insert(resourcePaths.sound, path)
             end
         end
-
-        local characterPath = line:match("@Character%s+([^#%s]+)")
-        if characterPath then
-            local character, error = CharacterParser.parseCharacter(characterPath)
-            if error or character == nil then
-                print("Error parsing character file:", error)
-            else
-                for _, c in ipairs(character) do
-                    characters[c.name] = c
+    end
+    
+    -- 加载资源
+    for _, fontDir in ipairs(resourcePaths.font) do
+        ResourceManager:loadFonts(instanceId or "global", fontDir)
+    end
+    for _, soundDir in ipairs(resourcePaths.sound) do
+        ResourceManager:loadSounds(instanceId or "global", soundDir)
+    end
+    
+    for line in fileContent:gmatch("[^\r\n]+") do
+        if line:match("^@portrait") then
+            local words = {}
+            for word in line:gmatch("%S+") do
+                table.insert(words, word)
+            end
+            if #words >= 3 then
+                local characterName = words[2]  -- 角色名称
+                local path = words[3]           -- 图像路径
+                local nameFontStr = #words >= 4 and words[4] or nil  -- 名称字体字符串
+                local fontStr = #words >= 5 and words[5] or nil      -- 正文字体字符串
+                
+                -- 解析字体和字号
+                local nameFontFile, nameFontSize = parseFontString(nameFontStr)
+                local fontFile, fontSize = parseFontString(fontStr)
+                
+                -- 加载角色
+                local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path, instanceId)
+                if error or not character then
+                    print("Error parsing character file: " .. tostring(error))
+                else
+                    -- 设置名称字体 (nameFont)
+                    if nameFontFile and nameFontSize then
+                        local fontKey = nameFontFile .. "_" .. nameFontSize
+                        if not ResourceManager.fonts[fontKey] then
+                            local fullPath = "demo/Assets/font/" .. nameFontFile
+                            ResourceManager.fonts[fontKey] = love.graphics.newFont(fullPath, nameFontSize)
+                        end
+                        character.nameFont = ResourceManager.fonts[fontKey]
+                    else
+                        character.nameFont = love.graphics.newFont(12)  -- 默认字号
+                    end
+                    
+                    -- 设置正文字体 (font)
+                    if fontFile and fontSize then
+                        local fontKey = fontFile .. "_" .. fontSize
+                        if not ResourceManager.fonts[fontKey] then
+                            local fullPath = "demo/Assets/font/" .. fontFile
+                            ResourceManager.fonts[fontKey] = love.graphics.newFont(fullPath, fontSize)
+                        end
+                        character.font = ResourceManager.fonts[fontKey]
+                    else
+                        character.font = love.graphics.newFont(12)  -- 默认字号
+                    end
+                    
+                    -- 保存角色并加载图像
+                    characters[characterName] = character
+                    PortraitManager.loadPortrait(characterName, path:match("^%s*(.-)%s*$"), instanceId)
                 end
+            else
+                print("Invalid @portrait line: " .. line)
             end
         end
     end
 
-    -- 第二遍解析：处理对话内容
+    -- First pass: Handle portrait definitions
+    -- for line in fileContent:gmatch("[^\r\n]+") do
+    --     local characterName, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
+    --     if characterName and path then
+    --         local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
+            
+    --         if error or character == nil then
+    --             print("Error parsing character file:", error)
+    --         end
+            
+    --         characters[characterName] = character
+    --         PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
+    --     end
+        
+    --     local characterPath = line:match("@Character%s+([^#%s]+)")
+    --     if characterPath then
+    --         local character, error = CharacterParser.parseCharacter(characterPath)
+
+    --         if error or character == nil then
+    --             print("Error parsing character file:", error)
+    --         else
+    --             for _, c in ipairs(character) do
+    --                 characters[c.name] = c
+    --             end
+    --         end
+    --     end
+    -- end
+    
     local fileLines = {}
     for line in fileContent:gmatch("[^\r\n]+") do
         if not line:match("^@callback") then
@@ -206,13 +249,23 @@ function Parser.parseFile(filePath)
             lines[currentLine] = parsedLine
             currentLine = currentLine + 1
         elseif line:match("^%->") then
+            print("DEBUG: Processing choice line:", line)
             line = line:gsub("[\r\n]", "")
             
             local choiceText, target = line:match("^%->%s*([^%[]+)%s*%[target:([%w_]+)%]%s*$")
             
+            print("DEBUG: Raw matches:")
+            print("  Text:", choiceText and '"'..choiceText..'"' or "nil")
+            print("  Target:", target and '"'..target..'"' or "nil")
+            
             if choiceText then
+                -- Trim whitespace
                 choiceText = choiceText:match("^%s*(.-)%s*$")
                 target = target and target:match("^%s*(.-)%s*$")
+                
+                print("DEBUG: After trimming:")
+                print("  Text:", '"'..choiceText..'"')
+                print("  Target:", target and '"'..target..'"' or "nil")
                 
                 local parsedChoiceText, choiceEffects = Parser.parseTextWithTags(choiceText)
                 
@@ -225,7 +278,12 @@ function Parser.parseFile(filePath)
                 
                 if lines[currentLine - 1] then
                     table.insert(lines[currentLine - 1].choices, choice)
+                    print("DEBUG: Added choice successfully")
+                else
+                    print("DEBUG: Warning - No previous line to attach choice to")
                 end
+            else
+                print("DEBUG: Failed to parse choice line:", line)
             end
         elseif line:match("^%[.*%]") then
             currentScene = line:match("^%[(.*)%]")
@@ -234,6 +292,17 @@ function Parser.parseFile(filePath)
     end
 
     return lines, characters, scenes
+end
+
+    -- 辅助函数：解析 {font_file, size} 格式
+function parseFontString(str)
+    if str and str:match("^{.+}$") then
+        local fontFile, size = str:match("^{(.-),(.-)}$")
+        if fontFile and size then
+            return fontFile, tonumber(size)
+        end
+    end
+    return nil, nil
 end
 
 function Parser.printDebugInfo(lines, characters)
