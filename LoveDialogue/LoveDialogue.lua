@@ -590,12 +590,12 @@ function LoveDialogue:drawFormattedText(text, font, startX, startY, baseColor, e
     
         if effects then
             for _, effect in ipairs(effects) do
-                if pos == effect.startIndex and effect.type == "sound" then
-                    local sound = ResourceManager:newSound(self.instanceId, effect.content, "sound_"..effect.content)
-                    if sound then
-                        sound:play()
-                    end
-                elseif pos >= effect.startIndex and pos <= effect.endIndex then
+                -- if pos == effect.startIndex and effect.type == "sound" then
+                --     local sound = ResourceManager:newSound(self.instanceId, effect.content, "sound_"..effect.content)
+                --     if sound then
+                --         sound:play()
+                --     end
+                if pos >= effect.startIndex and pos <= effect.endIndex then
                     local effectFunc = TextEffects[effect.type]
                     if effectFunc then
                         local effectColor, effectOffset = effectFunc(effect, char, pos, love.timer.getTime())
@@ -730,6 +730,8 @@ function LoveDialogue:setCurrentDialogue()
         return
     end
 
+    TextEffects.resetSoundTags()
+
     self:triggerPluginEvent("onBeforeDialogueSet", currentDialogue)
 
     self.currentCharacter = currentDialogue.character or ""
@@ -755,9 +757,20 @@ function LoveDialogue:setCurrentDialogue()
         end
     end
 
+    -- 预先为音效效果创建对象
     if currentDialogue.effects then
         for _, effect in ipairs(currentDialogue.effects) do
-            if effect then
+            if effect and effect.type == "sound" then
+                local sound = ResourceManager:newSound(self.instanceId, effect.content, "sound_" .. effect.content)
+                table.insert(self.effects, {
+                    type = effect.type,
+                    content = effect.content,
+                    startIndex = effect.startIndex,
+                    endIndex = effect.endIndex,
+                    timer = 0,
+                    soundObject = sound  -- 存储音效对象
+                })
+            else
                 table.insert(self.effects, {
                     type = effect.type,
                     content = effect.content,

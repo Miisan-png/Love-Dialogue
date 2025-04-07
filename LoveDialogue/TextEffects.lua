@@ -2,6 +2,8 @@ local TextEffects = {}
 local LD_PATH = (...):match('(.-)[^%.]+$')
 local ResourceManager = require(LD_PATH .. "ResourceManager")
 
+local activeSoundTags = {}
+
 function TextEffects.color(effect, char, charIndex, timer)
     local r, g, b = effect.content:match("(%x%x)(%x%x)(%x%x)")
     if r and g and b then
@@ -76,13 +78,33 @@ end
 --     return nil, {x = 0, y = 0, scale = 1}
 -- end
 
+
+
 function TextEffects.sound(effect, char, charIndex, timer)
-    local sound = ResourceManager:get("sounds", effect.content)
-    if sound then
-        sound:stop()
-        sound:play()
+    -- 只在第一次遇到这个音效标签时播放
+    if charIndex == effect.startIndex then
+        -- 创建唯一标识符，包含音效文件和标签位置
+        local soundTagID = string.format("%s_%d_%d", effect.content, effect.startIndex, effect.endIndex)
+        
+        -- 如果这个标签还没播放过
+        if not activeSoundTags[soundTagID] then
+            local sound = ResourceManager:get("sounds", effect.content)
+            if sound then
+                -- 停止之前可能还在播放的相同音效
+                sound:stop()
+                -- 播放音效
+                sound:play()
+                -- 标记这个标签为已播放
+                activeSoundTags[soundTagID] = true
+            end
+        end
     end
+    
     return nil, {x = 0, y = 0, scale = 1}
+end
+
+function TextEffects.resetSoundTags()
+    activeSoundTags = {}
 end
 
 return TextEffects
