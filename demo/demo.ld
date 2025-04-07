@@ -1,5 +1,6 @@
 @resource font demo/Assets/font
 @resource sound demo/Assets/sound
+@resource background demo/Assets/background
 
 @portrait Miisan demo/Assets/girl.png {fusion_pixel_font.ttf,15} {fusion_pixel_font.ttf,15}
 @portrait Eiisan demo/Assets/girl2.png {fusion_pixel_font.ttf,15} {fusion_pixel_font.ttf,15}

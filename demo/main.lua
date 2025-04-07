@@ -48,8 +48,8 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.setColor(0.2, 0.2, 0.25, 1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    -- love.graphics.setColor(0.2, 0.2, 0.25, 1)
+    -- love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())--绘制背景
     
     love.graphics.setColor(1, 1, 1, 1)
     
