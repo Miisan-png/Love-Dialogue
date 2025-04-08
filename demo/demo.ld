@@ -1,10 +1,11 @@
-@resource font demo/Assets/font
+@resource font demo/font
 @resource sound demo/Assets/sound
-@resource background demo/Assets/background
 
 @portrait Miisan demo/Assets/girl.png {fusion_pixel_font.ttf,15} {fusion_pixel_font.ttf,15}
 @portrait Eiisan demo/Assets/girl2.png {fusion_pixel_font.ttf,15} {fusion_pixel_font.ttf,15}
 @portrait Wiisan demo/Assets/girl3.png
+
+@Character demo/Assets/characters/feni.char
 
 [start]
 Miisan: Hello there! I'm Miisan.{sound:guitar.wav} Welcome to the {sound:guitar.wav}LoveDialogue engine demo{sound:叮.ogg}!

@@ -33,7 +33,7 @@ local ResourceManager = require(LD_PATH .. "ResourceManager")
 --     return self
 -- end
 
-function LD_Character.new(name, defaultExpression, instanceId)
+function LD_Character.new(name, defaultExpression)
     local self = setmetatable({}, LD_Character)
     self.name = name or ""
     self.color = {r = love.math.random(), g = love.math.random(), b = love.math.random()}
@@ -41,7 +41,6 @@ function LD_Character.new(name, defaultExpression, instanceId)
     self.expressions = {
         Default = defaultExpression
     }
-    self.instanceId = instanceId
     self.nameFont = nil  -- 名称字体，默认为 nil
     self.font = nil      -- 正文字体，默认为 nil
     return self

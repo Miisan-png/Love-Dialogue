@@ -85,34 +85,34 @@ Parser.parseTextWithTags = parseTextWithTags
 --- @return table<string, LD_Character>
 --- @return table
 function Parser.parseFile(filePath)
-    -- local lines = {}
-    -- local currentLine = 1
-    -- local scenes = {}
-    -- local currentScene = "default"
-    -- local characters = {}
-    
-    -- -- Read file content
-    -- local fileContent = love.filesystem.read(filePath)
-    -- if not fileContent then
-    --     error("Could not read file: " .. filePath)
-    --     return
-    -- end
-
     local lines = {}
     local currentLine = 1
     local scenes = {}
     local currentScene = "default"
     local characters = {}
     
+    -- Validate filePath
+    if not filePath or type(filePath) ~= "string" then
+        error("Invalid filePath: " .. tostring(filePath))
+        return
+    end
+    
+    -- Check if file exists
+    local fileInfo = love.filesystem.getInfo(filePath)
+    if not fileInfo then
+        error("File does not exist or cannot be accessed: " .. filePath)
+        return
+    end
+    
     -- Read file content
-    local fileContent = love.filesystem.read(filePath)
+    local fileContent, readError = love.filesystem.read(filePath)
     if not fileContent then
-        error("Could not read file: " .. filePath)
+        error("Could not read file '" .. filePath .. "': " .. (readError or "Unknown error"))
         return
     end
     
     -- 处理 @resource 指令
-    local resourcePaths = {font = {}, sound = {}}
+    local resourcePaths = {font = {}, sound = {}, background = {}}
     for line in fileContent:gmatch("[^\r\n]+") do
         local resourceType, path = line:match("^@resource%s+(%w+)%s+(.+)$")
         if resourceType and path then
@@ -120,6 +120,8 @@ function Parser.parseFile(filePath)
                 table.insert(resourcePaths.font, path)
             elseif resourceType == "sound" then
                 table.insert(resourcePaths.sound, path)
+            elseif resourceType == "background" then
+                table.insert(resourcePaths.background, path)
             end
         end
     end
@@ -132,6 +134,7 @@ function Parser.parseFile(filePath)
         ResourceManager:loadSounds(instanceId or "global", soundDir)
     end
     
+    -- Handle @portrait with dynamic font path
     for line in fileContent:gmatch("[^\r\n]+") do
         if line:match("^@portrait") then
             local words = {}
@@ -139,50 +142,64 @@ function Parser.parseFile(filePath)
                 table.insert(words, word)
             end
             if #words >= 3 then
-                local characterName = words[2]  -- 角色名称
-                local path = words[3]           -- 图像路径
-                local nameFontStr = #words >= 4 and words[4] or nil  -- 名称字体字符串
-                local fontStr = #words >= 5 and words[5] or nil      -- 正文字体字符串
+                local characterName = words[2]
+                local path = words[3]
+                local nameFontStr = #words >= 4 and words[4] or nil
+                local fontStr = #words >= 5 and words[5] or nil
                 
-                -- 解析字体和字号
                 local nameFontFile, nameFontSize = parseFontString(nameFontStr)
                 local fontFile, fontSize = parseFontString(fontStr)
                 
-                -- 加载角色
-                local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path, instanceId)
+                local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
                 if error or not character then
                     print("Error parsing character file: " .. tostring(error))
                 else
+                    -- Use font path from @resource
+                    local fontBasePath = resourcePaths.font[1] or "demo/Assets/font"
+                    
                     -- 设置名称字体 (nameFont)
                     if nameFontFile and nameFontSize then
                         local fontKey = nameFontFile .. "_" .. nameFontSize
                         if not ResourceManager.fonts[fontKey] then
-                            local fullPath = "demo/Assets/font/" .. nameFontFile
+                            local fullPath = fontBasePath .. "/" .. nameFontFile
+                            print("Loading name font:", fullPath) -- Debug output
                             ResourceManager.fonts[fontKey] = love.graphics.newFont(fullPath, nameFontSize)
                         end
                         character.nameFont = ResourceManager.fonts[fontKey]
                     else
-                        character.nameFont = love.graphics.newFont(12)  -- 默认字号
+                        character.nameFont = love.graphics.newFont(12)
                     end
                     
                     -- 设置正文字体 (font)
                     if fontFile and fontSize then
                         local fontKey = fontFile .. "_" .. fontSize
                         if not ResourceManager.fonts[fontKey] then
-                            local fullPath = "demo/Assets/font/" .. fontFile
+                            local fullPath = fontBasePath .. "/" .. fontFile
+                            print("Loading text font:", fullPath) -- Debug output
                             ResourceManager.fonts[fontKey] = love.graphics.newFont(fullPath, fontSize)
                         end
                         character.font = ResourceManager.fonts[fontKey]
                     else
-                        character.font = love.graphics.newFont(12)  -- 默认字号
+                        character.font = love.graphics.newFont(12)
                     end
                     
-                    -- 保存角色并加载图像
                     characters[characterName] = character
                     PortraitManager.loadPortrait(characterName, path:match("^%s*(.-)%s*$"), instanceId)
                 end
             else
                 print("Invalid @portrait line: " .. line)
+            end
+        end
+        local characterPath = line:match("@Character%s+([^#%s]+)")
+        if characterPath then
+            local character, error = CharacterParser.parseCharacter(characterPath)
+
+            if error or character == nil then
+                print("Error parsing character file:", error)
+            else
+                for _, c in ipairs(character) do
+                    characters[c.name] = c
+                end
             end
         end
     end
@@ -202,17 +219,17 @@ function Parser.parseFile(filePath)
     --     end
         
     --     local characterPath = line:match("@Character%s+([^#%s]+)")
-    --     if characterPath then
-    --         local character, error = CharacterParser.parseCharacter(characterPath)
+        -- if characterPath then
+        --     local character, error = CharacterParser.parseCharacter(characterPath)
 
-    --         if error or character == nil then
-    --             print("Error parsing character file:", error)
-    --         else
-    --             for _, c in ipairs(character) do
-    --                 characters[c.name] = c
-    --             end
-    --         end
-    --     end
+        --     if error or character == nil then
+        --         print("Error parsing character file:", error)
+        --     else
+        --         for _, c in ipairs(character) do
+        --             characters[c.name] = c
+        --         end
+        --     end
+        -- end
     -- end
     
     local fileLines = {}
