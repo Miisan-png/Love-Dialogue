@@ -1,4 +1,4 @@
-@resource font demo/font
+@resource font demo/Assets/font
 @resource sound demo/Assets/sound
 
 @portrait Miisan demo/Assets/girl.png {fusion_pixel_font.ttf,15} {fusion_pixel_font.ttf,15}
@@ -8,7 +8,7 @@
 @Character demo/Assets/characters/feni.char
 
 [start]
-Miisan: Hello there! I'm Miisan.{sound:guitar.wav} Welcome to the {sound:guitar.wav}LoveDialogue engine demo{sound:叮.ogg}!
+feni(happy): Hello there! I'm Miisan.{sound:guitar.wav} Welcome to the {sound:guitar.wav}LoveDialogue engine demo{sound:叮.ogg}!
 Eiisan: And I'm Eiisan! We're here to demonstrate how this dialogue system works.
 Wiisan: Don't forget about me! I'm Wiisan. Together we'll show you the features of this engine.
 
