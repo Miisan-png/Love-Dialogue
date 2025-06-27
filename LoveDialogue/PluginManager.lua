@@ -191,6 +191,10 @@ function PluginManager:createPluginTemplate(name, description)
             -- Called before dialogue is destroyed
         end,
         
+        onUtteranceEnd = function(dialogue, pluginData)
+            -- Called when a character participation ends
+        end,
+
         -- Optional hooks for modifying behavior
         modifyDeltaTime = function(dialogue, pluginData, dt)
             -- Can be used to modify the delta time for animations
