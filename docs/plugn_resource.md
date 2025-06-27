@@ -150,7 +150,7 @@ local config = {
     plugins = {"SoundEffects", "Animations", "MyPlugin"},
     
     -- Configure plugins
-    pluginConfig = {
+    pluginData = {
         SoundEffects = {
             typingSound = "sounds/typing.wav",
             advanceSound = "sounds/advance.wav"
@@ -178,7 +178,7 @@ PluginManager:register(SoundEffectsPlugin)
 -- When creating dialogue
 local config = {
     plugins = {"SoundEffects"},
-    pluginConfig = {
+    pluginData = {
         SoundEffects = {
             typingSound = "sounds/typing.wav",
             typingSoundVolume = 0.5,
