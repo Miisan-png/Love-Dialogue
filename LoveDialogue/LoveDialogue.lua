@@ -83,7 +83,7 @@ function LoveDialogue:new(config)
         
         -- Plugin storage
         plugins = {},
-        pluginData = {},
+        pluginData = config.pluginData or {},
     }
     
     -- Initialize typing speed from speed setting
@@ -137,7 +137,7 @@ function LoveDialogue:registerPlugin(pluginName)
     local plugin = PluginManager:getPlugin(pluginName)
     if plugin then
         table.insert(self.plugins, plugin)
-        self.pluginData[pluginName] = {}
+        self.pluginData[pluginName] = self.pluginData[pluginName] or {}
         
         -- Initialize plugin if it has an init function
         if plugin.init then
@@ -301,6 +301,9 @@ function LoveDialogue:update(dt)
                         self:triggerPluginEvent("onCharacterTyped", newChar, self.displayedText)
                     end
                 end
+            elseif self.displayedText == currentFullText and not self.autoAdvance then
+                -- Text is fully displayed
+                self:triggerPluginEvent("onUtteranceEnd", self.displayedText)
             elseif self.autoAdvance then
                 -- Text is fully displayed, start auto-advance timer
                 self.autoAdvanceTimer = self.autoAdvanceTimer + modifiedDt
