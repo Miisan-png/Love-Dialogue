@@ -16,25 +16,33 @@ ResourceManager.instanceRegistry = {}
 -- @param name string (optional): a name to identify this resource
 -- @return the resource for chaining
 function ResourceManager:track(instanceId, resourceType, resource, name)
-    if not self.instanceRegistry[instanceId] then
-        self.instanceRegistry[instanceId] = {}
-    end
-    
-    if not self.instanceRegistry[instanceId][resourceType] then
-        self.instanceRegistry[instanceId][resourceType] = {}
-    end
-    
-    table.insert(self.instanceRegistry[instanceId][resourceType], {
-        resource = resource,
-        name = name or "unnamed_" .. #self.instanceRegistry[instanceId][resourceType]
-    })
-    
     if not self.resources[resourceType] then
         self.resources[resourceType] = {}
     end
-    
-    self.resources[resourceType][name or resource] = resource
-    
+
+    -- Reuse existing resource if it already exists (based on name)
+    local key = name or tostring(resource)
+    local existing = self.resources[resourceType][key]
+    if existing then
+        -- Track the existing one under the new instance, too
+        resource = existing
+    else
+        self.resources[resourceType][key] = resource
+    end
+
+    -- Register under instance
+    if not self.instanceRegistry[instanceId] then
+        self.instanceRegistry[instanceId] = {}
+    end
+    if not self.instanceRegistry[instanceId][resourceType] then
+        self.instanceRegistry[instanceId][resourceType] = {}
+    end
+
+    table.insert(self.instanceRegistry[instanceId][resourceType], {
+        resource = resource,
+        name = key
+    })
+
     return resource
 end
 
