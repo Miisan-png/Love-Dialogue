@@ -12,34 +12,30 @@
 @rect Eiisan Happy 0 0 100 108
 @rect Eiisan Sad 100 0 100 108
 @rect Eiisan Neutral 202 0 100 108
+@voice Eiisan demo/assets/sfx/low.wav
 
 @atlas Wiisan demo/assets/character_portraits/girl3_atlas.png
 @rect Wiisan Happy 0 0 100 108
 @rect Wiisan Sad 100 0 100 108
 @rect Wiisan Mad 202 0 100 108
+@voice Wiisan demo/assets/sfx/high.wav
 
 // Initialize logic
 $ coins = 0
 $ name = "Traveller"
 
 [start]
-Miisan: (Happy) Hello ${name}! I can talk now! Do you hear the blip?
-// Move Miisan 20px right
+Miisan: (Happy) Hello ${name}! I sound like a normal anime girl.
+Eiisan: (Happy) And I sound like a cool skeleton guy.
+Wiisan: (Happy) I sound squeaky like a small animal!
+
+Miisan: (Happy) See? We all have unique voices now.
 [move: Miisan 20 0 0.5]
-Miisan: (Sad) I moved 20 pixels to the right!
-// Move back
+Miisan: (Sad) And I can still move around.
 [move: Miisan 0 0 0.5]
-Miisan: (Happy) Back to normal.
 
-Eiisan: (Happy) I can do that too!
-// Move Eiisan Up
-[move: Eiisan 0 -30 0.3]
-Eiisan: (Happy) I jumped!
-[move: Eiisan 0 0 0.3]
-
-Wiisan: (Happy) Save and Load test!
-Miisan: Press 'S' to save, then restart the game and press 'L'.
-Miisan: Or just choose options and check variables.
+Eiisan: (Happy) I love my low-pitched voice.
+Wiisan: (Happy) Mine is definitely the cutest!
 
 -> Gain 50 Gold [target:gain]
 -> Spend 50 Gold [target:spend] [if: coins >= 50]
