@@ -4,9 +4,30 @@ local PluginManager = require("LoveDialogue.PluginManager")
 local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
 local myDialogue
 local savedState = nil
+local config = nil
+local nextScriptPath = nil -- Queue for scene switching
 
 -- Use a variable for background color to demonstrate signal changes
 local bgColor = {0.1, 0.1, 0.2, 1}
+
+local function onSignal(name, args)
+    if name == "ChangeBG" then
+        local r, g, b = args:match("(%S+)%s+(%S+)%s+(%S+)")
+        if r and g and b then
+            bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
+        end
+    elseif name == "LoadScript" then
+        -- Queue the switch for the next update cycle
+        -- This prevents destroying the dialogue instance while it's still running its update loop
+        nextScriptPath = args
+        
+    elseif name == "QuitGame" then
+        love.event.quit()
+    elseif name == "PlaySound" then
+         local s = love.audio.newSource(args, "static")
+         s:play()
+    end
+end
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -14,12 +35,9 @@ function love.load()
     love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
     
-    -- Note: 'blip.wav' now exists in demo/assets/sfx/
-    -- It will be loaded automatically by the engine when referenced in the .ld file
-    
     PluginManager:register(DebugPlugin)
     
-    local config = {
+    config = {
         boxHeight = 260,
         portraitEnabled = true,
         boxColor = {0.1, 0.1, 0.2, 0.95},
@@ -36,7 +54,6 @@ function love.load()
         initialSpeedSetting = "normal",
         autoAdvance = false,
         autoAdvanceDelay = 2.0,
-        -- 9-Patch UI
         useNinePatch = true,
         ninePatchPath = "demo/assets/ui/9patch.png",
         ninePatchScale = 3,
@@ -47,34 +64,22 @@ function love.load()
     }
     
     myDialogue = LoveDialogue.play("demo/launcher.ld", config)
-    
-    -- Register a simple callback for signals
-    myDialogue.onSignal = function(name, args)
-        if name == "ChangeBG" then
-            local r, g, b = args:match("(%S+)%s+(%S+)%s+(%S+)")
-            if r and g and b then
-                bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
-            end
-        elseif name == "LoadScript" then
-            -- args is the path
-            -- We need to restart the dialogue with the new file
-            -- Reuse the same config
-            myDialogue = LoveDialogue.play(args, config)
-            -- Re-attach signal listener since play() creates new instance
-            myDialogue.onSignal = function(n, a) love.load_signals(n, a) end
-        elseif name == "QuitGame" then
-            love.event.quit()
-        elseif name == "PlaySound" then
-             local s = love.audio.newSource(args, "static")
-             s:play()
-        end
-    end
-    
-    -- Helper to keep signal logic in one place
-    love.load_signals = myDialogue.onSignal
+    myDialogue.onSignal = onSignal
 end
 
 function love.update(dt)
+    -- Handle scene switching safely at start of frame
+    if nextScriptPath then
+        print("Switching to script:", nextScriptPath)
+        if myDialogue then
+            myDialogue:destroy()
+        end
+        myDialogue = LoveDialogue.play(nextScriptPath, config)
+        myDialogue.onSignal = onSignal
+        nextScriptPath = nil
+        return -- Skip update for one frame to let things settle
+    end
+
     if myDialogue then myDialogue:update(dt) end
 end
 

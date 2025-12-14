@@ -17,12 +17,14 @@ Miisan: (Happy) Select a demo to see specific features in action.
 -> Quit [target:quit]
 
 [load_story]
+// Trigger signal then stop processing (infinite loop or just wait)
+// The main.lua will kill this instance anyway
 [signal: LoadScript demo/scripts/story.ld]
-(end)
+Miisan: Loading Story...
 
 [load_tech]
 [signal: LoadScript demo/scripts/tech.ld]
-(end)
+Miisan: Loading Tech...
 
 [quit]
 [signal: QuitGame]
