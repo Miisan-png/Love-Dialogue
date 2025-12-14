@@ -10,13 +10,11 @@ local function getCacheKey(type, uniqueKey, ...)
     for i, v in ipairs(args) do
         table.insert(safeArgs, tostring(v))
     end
-    -- Use uniqueKey instead of path
     return string.format("%s:%s:%s", type, tostring(uniqueKey), table.concat(safeArgs, ":"))
 end
 
 function ResourceManager:get(instanceId, type, uniqueKey, loader, ...)
     local key = getCacheKey(type, uniqueKey, ...)
-    
     if not resources.cache[key] then
         local success, asset = pcall(loader, ...)
         if not success or not asset then
@@ -27,22 +25,16 @@ function ResourceManager:get(instanceId, type, uniqueKey, loader, ...)
     end
 
     local entry = resources.cache[key]
-    
-    -- Check if asset is released (for images) and reload if necessary
     if entry.asset.type and entry.asset:type() == "Image" and entry.asset.isReleased and entry.asset:isReleased() then
         local success, asset = pcall(loader, ...)
-        if success and asset then
-             entry.asset = asset
-        end
+        if success and asset then entry.asset = asset end
     end
 
     if not resources.owners[instanceId] then resources.owners[instanceId] = {} end
-    
     if not resources.owners[instanceId][key] then
         resources.owners[instanceId][key] = true
         entry.refCount = entry.refCount + 1
     end
-
     return entry.asset
 end
 
@@ -52,11 +44,8 @@ end
 
 function ResourceManager:getFont(id, size, path, name)
     local loader = function(p, s) 
-        if p and p ~= "default" and love.filesystem.getInfo(p) then
-            return love.graphics.newFont(p, s)
-        else
-            return love.graphics.newFont(s) 
-        end
+        if p and p ~= "default" and love.filesystem.getInfo(p) then return love.graphics.newFont(p, s)
+        else return love.graphics.newFont(s) end
     end
     return self:get(id, "font", (path or "default")..size, loader, path, size)
 end
@@ -70,14 +59,9 @@ function ResourceManager:getSound(id, path, type)
     return self:get(id, "sound", path, love.audio.newSource, path, type)
 end
 
--- Allow manual registration of assets (useful for generated sounds)
--- Updated: accept ... args to match getCacheKey signature
 function ResourceManager:registerManual(id, type, uniqueKey, asset, ...)
     local key = getCacheKey(type, uniqueKey, ...)
-    if not resources.cache[key] then
-        resources.cache[key] = { asset = asset, refCount = 1 } -- Start with 1 ref so it persists
-    end
-    
+    if not resources.cache[key] then resources.cache[key] = { asset = asset, refCount = 1 } end
     if id then
         if not resources.owners[id] then resources.owners[id] = {} end
         if not resources.owners[id][key] then
@@ -89,7 +73,6 @@ end
 
 function ResourceManager:releaseInstance(id)
     if not resources.owners[id] then return end
-    
     for key in pairs(resources.owners[id]) do
         local entry = resources.cache[key]
         if entry then

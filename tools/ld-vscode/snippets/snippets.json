@@ -1,0 +1,85 @@
+{
+	"Dialogue Scene": {
+		"prefix": "scene",
+		"body": [
+			"[${1:scene_name}]",
+			"${2:Character}: ${3:Hello world!}",
+			"$0"
+		],
+		"description": "Create a new dialogue scene"
+	},
+	"Definition: Sheet": {
+		"prefix": "@sheet",
+		"body": [
+			"@sheet ${1:Name} ${2:path/to/image.png} ${3:frameW} ${4:frameH}",
+			"@frame ${1:Name} Default 1",
+			"@frame ${1:Name} Happy 2"
+		],
+		"description": "Define a character spritesheet"
+	},
+	"Definition: Atlas": {
+		"prefix": "@atlas",
+		"body": [
+			"@atlas ${1:Name} ${2:path/to/image.png}",
+			"@rect ${1:Name} Default ${3:x} ${4:y} ${5:w} ${6:h}"
+		],
+		"description": "Define a character atlas with manual rects"
+	},
+	"Logic: If Block": {
+		"prefix": "if",
+		"body": [
+			"[if: ${1:condition}]",
+			"\t$0",
+			"[else]",
+			"\t",
+			"[endif]"
+		],
+		"description": "Conditional block"
+	},
+	"Choice": {
+		"prefix": "choice",
+		"body": [
+			"-> ${1:Option Text} [target:${2:label}]",
+			"$0"
+		],
+		"description": "Add a choice option"
+	},
+	"Choice Conditional": {
+		"prefix": "choiceif",
+		"body": [
+			"-> ${1:Option Text} [target:${2:label}] [if: ${3:condition}]",
+			"$0"
+		],
+		"description": "Add a conditional choice option"
+	},
+	"Command: Signal": {
+		"prefix": "signal",
+		"body": "[signal: ${1:EventName} ${2:Args}]",
+		"description": "Trigger a Lua signal"
+	},
+	"Command: Move": {
+		"prefix": "move",
+		"body": "[move: ${1:Character} ${2:x} ${3:y} ${4:duration}]",
+		"description": "Move a character (Tween)"
+	},
+	"Command: Fade": {
+		"prefix": "fade",
+		"body": "[fade: ${1|in,out|} ${2:1.0}]",
+		"description": "Fade screen in or out"
+	},
+	"Effect: Color": {
+		"prefix": "color",
+		"body": "{color:${1:FF0000}}${2:Text}{/color}",
+		"description": "Colored text"
+	},
+	"Effect: Wave": {
+		"prefix": "wave",
+		"body": "{wave:${1:1}}${2:Text}{/wave}",
+		"description": "Waving text"
+	},
+	"Variable": {
+		"prefix": "var",
+		"body": "$ ${1:name} = ${2:value}",
+		"description": "Set a variable"
+	}
+}

@@ -119,6 +119,19 @@ function Parser.parseFile(path, instanceId)
             elseif clean:match('^%[stop_bgm%]') then
                 table.insert(lines, { type = "stop_bgm" })
 
+            -- NEW: Fade
+            elseif clean:match('^%[fade:.+%]$') then
+                local content = clean:match('^%[fade:%s*(.+)%]$')
+                local type, duration, hex = content:match('^(%S+)%s+(%S+)%s*(.*)$')
+                local color = nil
+                if hex and hex:match("#%x+") then
+                    local r = tonumber(hex:sub(2,3), 16)/255
+                    local g = tonumber(hex:sub(4,5), 16)/255
+                    local b = tonumber(hex:sub(6,7), 16)/255
+                    color = {r, g, b}
+                end
+                table.insert(lines, { type = "fade", mode = type, duration = tonumber(duration), color = color })
+
             -- Signals
             elseif clean:match('^%[signal:.+%]$') then
                 local signalContent = clean:match('^%[signal:%s*(.+)%]$')

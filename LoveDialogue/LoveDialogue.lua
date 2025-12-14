@@ -9,6 +9,7 @@ local PluginManager = require(MODULE_PATH .. "PluginManager")
 local ninePatch = require(MODULE_PATH .. "9patch")
 local Logic = require(MODULE_PATH .. "Logic")
 local Tween = require(MODULE_PATH .. "Tween")
+local Transition = require(MODULE_PATH .. "Transition")
 local utf8 = require("utf8")
 
 local LoveDialogue = {}
@@ -32,9 +33,7 @@ function LoveDialogue.new(config)
         edgeWidth = config.edgeWidth or 10,
         edgeHeight = config.edgeHeight or 10,
         useNinePatch = config.useNinePatch or false,
-        
-        indicatorPath = config.indicatorPath, -- Path to custom indicator image
-        
+        indicatorPath = config.indicatorPath,
         characterType = config.character_type or 0,
         letterSpacingLatin = config.letterSpacingLatin or 4,
         letterSpacingCJK = config.letterSpacingCJK or 10,
@@ -79,6 +78,7 @@ function LoveDialogue.new(config)
         status = "inactive", 
         typewriterTimer = 0,
         displayedText = "",
+        fullText = "",
         currentCharacter = "",
         boxOpacity = 0,
         animationTimer = 0,
@@ -94,7 +94,8 @@ function LoveDialogue.new(config)
         currentSpeedSetting = self.config.initialSpeed,
         filePath = "",
         bgm = nil,
-        waitingForInput = false
+        waitingForInput = false,
+        transition = Transition.new()
     }
 
     for k,v in pairs(self.config.initialVariables) do
@@ -279,6 +280,15 @@ function LoveDialogue:processCurrentLine()
         self:stopBGM()
         self.state.currentLineIndex = self.state.currentLineIndex + 1
         return self:processCurrentLine()
+        
+    elseif line.type == "fade" then
+        -- fade: out (black) or in (clear)
+        Transition.start(self.state.transition, line.mode, line.duration, line.color, function()
+            -- Callback when fade finishes: advance line
+            self.state.currentLineIndex = self.state.currentLineIndex + 1
+            self:processCurrentLine()
+        end)
+        return -- Pause processing until fade callback fires
     end
 
     self:setDialogueState(line)
@@ -343,14 +353,27 @@ function LoveDialogue:update(dt)
     if not self.state.isActive then return end
     for _, p in ipairs(self.plugins) do if p.modifyDeltaTime then dt = p.modifyDeltaTime(self, self.config.pluginData[p.name], dt) end end
     
-    for i = #self.state.activeTweens, 1, -1 do
-        local t = self.state.activeTweens[i]
-        if Tween.update(t, dt) then
-            table.remove(self.state.activeTweens, i)
+        -- Update Tweens
+    
+        for i = #self.state.activeTweens, 1, -1 do
+    
+            local t = self.state.activeTweens[i]
+    
+            if Tween.update(t, dt) then
+    
+                table.remove(self.state.activeTweens, i)
+    
+            end
+    
         end
-    end
-
-    if self.state.status == "fading_in" then
+    
+        
+    
+        Transition.update(self.state.transition, dt)
+    
+    
+    
+        if self.state.status == "fading_in" then
         self.state.animationTimer = self.state.animationTimer + dt
         self.state.boxOpacity = math.min(self.state.animationTimer / self.config.fadeInDuration, 1)
         if self.state.animationTimer >= self.config.fadeInDuration then self.state.status = "active" end
@@ -366,6 +389,8 @@ end
 
 function LoveDialogue:handleTypewriter(dt)
     local fullText = self.state.fullText
+    if not fullText then return end
+    
     if self.state.displayedText ~= fullText then
         self.state.waitingForInput = false
         self.state.typewriterTimer = self.state.typewriterTimer + dt
@@ -426,18 +451,21 @@ function LoveDialogue:draw()
     
     if self.state.waitingForInput and not self.state.choiceMode then
         local bounce = math.sin(love.timer.getTime() * 8) * 5
-        local ix = w - self.config.padding - 40
-        local iy = h - self.config.padding - 30 + bounce
-        love.graphics.setColor(1, 1, 1, opacity * 0.9)
+        local ix = w - self.config.padding - 60
+        local iy = h - self.config.padding - 50 + bounce
+        
+        love.graphics.setColor(1, 1, 1, opacity * 0.8)
         
         if self.resources.indicator then
-            -- Scale it up a bit (e.g. 2x)
-            love.graphics.draw(self.resources.indicator, ix, iy, 0, 2, 2)
+            -- Scale 3x and Flip Vertically (sy = -3)
+            -- Offset origin by height (h=16) to flip correctly
+            love.graphics.draw(self.resources.indicator, ix, iy + 16*3, 0, 3, -3)
         else
-            -- Fallback triangle
             love.graphics.polygon("fill", ix, iy, ix+20, iy, ix+10, iy+15)
         end
     end
+    
+    Transition.draw(self.state.transition)
     
     self:triggerPluginEvent("onAfterDraw")
 end

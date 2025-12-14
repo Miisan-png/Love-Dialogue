@@ -13,23 +13,18 @@ function LoveCharacter.new(name, instanceId)
     self.expressions = {}
     self.sheet = nil
     self.atlas = nil
-    self.voice = nil -- Sound Source for typewriter
-    
-    -- Transform properties for Stage Directions
+    self.voice = nil 
     self.x = 0
     self.y = 0
     self.scale = 1
     self.alpha = 1
     self.rotation = 0
     self.visible = true
-    
     return self
 end
 
 function LoveCharacter:setVoice(path)
     if not self.instanceId then return false end
-    -- Check if it's a file or a manually registered key
-    -- getSound handles both via cache lookup
     self.voice = ResourceManager:getSound(self.instanceId, path, "static")
     return self.voice ~= nil
 end
@@ -84,29 +79,21 @@ end
 
 function LoveCharacter:draw(exprName, x, y, w, h, flipH)
     if not self.visible then return end
-    
     local expr = self.expressions[exprName] or self.expressions.Default
     if not expr then return end
     
-    -- Apply base position offsets + Tweened transforms
     local drawX = x + self.x
     local drawY = y + self.y
-    
     local sx, sy = w, h
     if w > 10 and expr.w > 0 then sx = w / expr.w end
     if h > 10 and expr.h > 0 then sy = h / expr.h end
     
-    -- Apply tweened scale
     sx = sx * self.scale
     sy = sy * self.scale
-    
     local ox = 0
-    if flipH then
-        sx = -sx
-        ox = expr.w
-    end
+    if flipH then sx = -sx; ox = expr.w end
 
-    love.graphics.setColor(1, 1, 1, self.alpha) -- Apply tweened alpha
+    love.graphics.setColor(1, 1, 1, self.alpha)
     love.graphics.draw(expr.texture, expr.quad, drawX, drawY, self.rotation, sx, sy, ox, 0)
 end
 

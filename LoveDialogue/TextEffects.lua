@@ -59,7 +59,7 @@ end
 function TextEffects.italic(effect, char, charIndex, timer)
     local shearDirection = -1 
     if effect.content == "left" then
-        shearDirection = 1 -- Apply left lean
+        shearDirection = 1 
     end
 
     return nil, {shearX = 0.5 * shearDirection}

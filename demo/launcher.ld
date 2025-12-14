@@ -9,6 +9,7 @@
 // Start background music
 [bgm: demo/assets/sfx/music.wav]
 
+
 [start]
 Miisan: (Happy) Welcome to the LoveDialogue Engine Hub!
 Miisan: (Happy) Select a demo to see specific features in action.

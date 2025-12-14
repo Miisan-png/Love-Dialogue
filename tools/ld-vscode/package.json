@@ -1,0 +1,38 @@
+{
+  "name": "ld-language-support",
+  "displayName": "LoveDialogue Language Support",
+  "description": "Syntax highlighting and snippets for LoveDialogue (.ld) files",
+  "version": "1.0.0",
+  "publisher": "miisan",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "icon": "images/ld-icon.png",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ld",
+        "aliases": ["LoveDialogue", "ld"],
+        "extensions": [".ld"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ld",
+        "scopeName": "source.ld",
+        "path": "./syntaxes/ld.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "ld",
+        "path": "./snippets/snippets.json"
+      }
+    ]
+  }
+}

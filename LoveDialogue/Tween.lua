@@ -1,11 +1,9 @@
 local Tween = {}
 
--- Linear interpolation
 local function lerp(a, b, t)
     return a + (b - a) * t
 end
 
--- Easing functions
 local easings = {
     linear = function(t) return t end,
     easeout = function(t) return 1 - (1 - t) * (1 - t) end,
@@ -15,7 +13,7 @@ local easings = {
 function Tween.new(target, keys, duration, easing, callback)
     local self = {
         target = target,
-        keys = keys, -- { x = 100, alpha = 0 }
+        keys = keys, 
         startValues = {},
         duration = duration or 1,
         timer = 0,
@@ -23,12 +21,9 @@ function Tween.new(target, keys, duration, easing, callback)
         callback = callback,
         finished = false
     }
-    
-    -- Capture start values
     for k, v in pairs(keys) do
         self.startValues[k] = target[k] or 0
     end
-    
     return self
 end
 
@@ -47,7 +42,7 @@ function Tween.update(tween, dt)
     if t >= 1 then
         tween.finished = true
         if tween.callback then tween.callback() end
-        return true -- Remove me
+        return true 
     end
     return false
 end

@@ -7,7 +7,6 @@ local savedState = nil
 local config = nil
 local nextScriptPath = nil
 
--- Use a variable for background color to demonstrate signal changes
 local bgColor = {0.1, 0.1, 0.2, 1}
 
 local function onSignal(name, args)
@@ -31,24 +30,6 @@ function love.load()
     love.window.setTitle("LoveDialogue Engine Demo")
     love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
-    
-    -- Generate indicator if missing
-    local indPath = "demo/assets/ui/indicator.png"
-    if not love.filesystem.getInfo(indPath) then
-        local imgData = love.image.newImageData(16, 16)
-        for y=0, 15 do
-            for x=0, 15 do
-                local alpha = 0
-                if y < 8 then
-                    if x >= (7 - y) and x <= (8 + y) then alpha = 1 end
-                else
-                    if x >= 6 and x <= 9 and y < 14 then alpha = 1 end
-                end
-                if alpha > 0 then imgData:setPixel(x, y, 1, 1, 1, 1) end
-            end
-        end
-        imgData:encode("png", indPath)
-    end
     
     PluginManager:register(DebugPlugin)
     
@@ -74,7 +55,7 @@ function love.load()
         ninePatchScale = 3,
         edgeWidth = 12,
         edgeHeight = 12,
-        indicatorPath = indPath,
+        indicatorPath = "demo/assets/ui/indicator.bmp", -- Use the BMP we generated
         plugins = {"Debug"},
         pluginData = { Debug = { enabled = false } }
     }

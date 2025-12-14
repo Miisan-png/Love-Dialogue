@@ -1,8 +1,4 @@
--- https://github.com/notcl4y14/lovepatch
 local lib = {}
-
--- Thanks to darkfrei for helping with the code
--- https://love2d.org/forums/memberlist.php?mode=viewprofile&u=145963
 
 function lib.load(filename, arg1, arg2, arg3, arg4)
 	local image = love.graphics.newImage(filename)
@@ -47,11 +43,6 @@ function lib.loadSameEdge(image, edgeW, edgeH)
 	local middleW = imageW - 2 * edgeW
 	local middleH = imageH - 2 * edgeH
 	
-	-- quads:
-	-- 1 2 3
-	-- 4 5 6
-	-- 7 8 9
-	
 	local quad1 = love.graphics.newQuad(0, 0, edgeW, edgeH, image)
 	local quad2 = love.graphics.newQuad(edgeW, 0, middleW, edgeH, image)
 	local quad3 = love.graphics.newQuad(edgeW + middleW, 0, edgeW, edgeH, image)
@@ -81,15 +72,11 @@ function lib.draw(patch, x, y, width, height, scale)
     scale = scale or 1
 	local imageW, imageH = patch.width, patch.height
 
-    -- Calculate the scaled edge dimensions
     local sLeft = patch.left * scale
     local sRight = patch.right * scale
     local sTop = patch.top * scale
     local sBottom = patch.bottom * scale
 
-    -- Calculate the scale for the MIDDLE sections
-    -- Available space for middle = Total Width - Scaled Edges
-    -- Source middle width = Image Width - Source Edges
 	local middleScaleX = (width - sLeft - sRight) / (imageW - patch.left - patch.right)
 	local middleScaleY = (height - sTop - sBottom) / (imageH - patch.top - patch.bottom)
 

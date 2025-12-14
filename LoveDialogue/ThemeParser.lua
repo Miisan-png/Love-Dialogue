@@ -42,7 +42,6 @@ function ThemeParser.applyTheme(dialogue, theme)
     for k, v in pairs(theme) do
         if dialogue.config[k] ~= nil then dialogue.config[k] = v end
     end
-    -- Trigger resource reload if font sizes changed
     if theme.fontSize or theme.nameFontSize or theme.boxHeight or theme.padding then
         if dialogue.adjustLayout then dialogue:adjustLayout() end
     end
