@@ -71,9 +71,9 @@ function ResourceManager:getSound(id, path, type)
 end
 
 -- Allow manual registration of assets (useful for generated sounds)
--- Updated: id can be nil for global/manual assets that shouldn't be auto-released by an instance
-function ResourceManager:registerManual(id, type, uniqueKey, asset)
-    local key = getCacheKey(type, uniqueKey)
+-- Updated: accept ... args to match getCacheKey signature
+function ResourceManager:registerManual(id, type, uniqueKey, asset, ...)
+    local key = getCacheKey(type, uniqueKey, ...)
     if not resources.cache[key] then
         resources.cache[key] = { asset = asset, refCount = 1 } -- Start with 1 ref so it persists
     end

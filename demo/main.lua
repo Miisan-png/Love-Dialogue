@@ -9,23 +9,13 @@ local savedState = nil
 local bgColor = {0.1, 0.1, 0.2, 1}
 
 function love.load()
+    love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("LoveDialogue Engine Demo")
     love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
     
-    -- Generate a synthetic blip sound
-    local sampleRate = 44100
-    local duration = 0.05
-    local soundData = love.sound.newSoundData(math.floor(sampleRate * duration), sampleRate, 16, 1)
-    for i = 0, soundData:getSampleCount() - 1 do
-        local t = i / sampleRate
-        local value = math.sin(t * 800 * math.pi * 2) * 0.5 -- 400Hz Sine wave
-        soundData:setSample(i, value)
-    end
-    local blipSource = love.audio.newSource(soundData)
-    
-    -- Register the manual asset so LoveDialogue can find it by path string
-    ResourceManager:registerManual(nil, "sound", "demo/assets/sfx/blip.wav", blipSource)
+    -- Note: 'blip.wav' now exists in demo/assets/sfx/
+    -- It will be loaded automatically by the engine when referenced in the .ld file
     
     PluginManager:register(DebugPlugin)
     
@@ -57,6 +47,16 @@ function love.load()
     }
     
     myDialogue = LoveDialogue.play("demo/demo.ld", config)
+    
+    -- Register a simple callback for signals
+    myDialogue.onSignal = function(name, args)
+        if name == "ChangeBG" then
+            local r, g, b = args:match("(%S+)%s+(%S+)%s+(%S+)")
+            if r and g and b then
+                bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
+            end
+        end
+    end
 end
 
 function love.update(dt)
@@ -66,7 +66,10 @@ end
 function love.draw()
     local w, h = love.graphics.getDimensions()
     for i = 0, h do
-        love.graphics.setColor(0.1 + (i/h)*0.1, 0.1 + (i/h)*0.1, 0.2 + (i/h)*0.1, 1)
+        local r = bgColor[1] + (i/h)*0.1
+        local g = bgColor[2] + (i/h)*0.1
+        local b = bgColor[3] + (i/h)*0.1
+        love.graphics.setColor(r, g, b, 1)
         love.graphics.line(0, i, w, i)
     end
     
@@ -83,7 +86,7 @@ function love.keypressed(key)
     elseif key == "s" then
         if myDialogue then
             savedState = myDialogue:saveState()
-            print("Game Saved!", savedState.line, savedState.variables.coins)
+            print("Game Saved!", savedState.line)
         end
     elseif key == "l" then
         if myDialogue and savedState then
