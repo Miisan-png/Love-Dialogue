@@ -15,8 +15,11 @@ function love.load()
     PluginManager:register(DebugPlugin)
     
     local config = {
-        boxHeight = 220,
-        portraitEnabled = true,
+        -- 9-Patch UI
+        useNinePatch = true,
+        ninePatchPath = "demo/assets/ui/9patch.png",
+        edgeWidth = 12,  -- Adjusted for standard 9-patch borders
+        edgeHeight = 12,
         boxColor = {0.1, 0.1, 0.2, 0.95},
         textColor = {1, 1, 1, 1},
         nameColor = {1, 0.8, 0.2, 1},

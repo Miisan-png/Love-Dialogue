@@ -50,7 +50,6 @@ function Parser.parseFile(path, instanceId)
     local i = 1
     for _, line in ipairs(rawLines) do
         local clean = line:match("^%s*(.-)%s*$")
-        -- Skip empty lines and comments
         if clean ~= "" and not clean:match("^//") then
             
             -- 1. Portraits
@@ -82,13 +81,13 @@ function Parser.parseFile(path, instanceId)
                     chars[name]:defineAtlas(path)
                 end
 
-            -- 1e. Rect (Removed $ anchor for safety)
+            -- 1e. Rect
             elseif clean:match('^@rect%s+') then
                 local name, expr, x, y, w, h = clean:match('^@rect%s+(%S+)%s+(%S+)%s+(%-?%d+)%s+(%-?%d+)%s+(%d+)%s+(%d+)')
                 if name and expr and x and y and w and h and chars[name] then
                     chars[name]:addRect(expr, tonumber(x), tonumber(y), tonumber(w), tonumber(h))
                 else
-                    print("Warning: Failed to parse @rect line: " .. clean)
+                    print("Warning: Failed to parse @rect line: '" .. clean .. "'")
                 end
 
             -- 2. Commands
@@ -137,11 +136,28 @@ function Parser.parseFile(path, instanceId)
             
             -- 10. Dialogue
             else
-                local name, expr, text = clean:match('^(%S-)(%b()):%s*(.+)$')
-                if not name then name, text = clean:match('^(%S+):%s*(.+)$') end
+                local name, expr, text
+                
+                -- Style 1: Name(Expression): Text
+                name, expr, text = clean:match('^(%S-)(%b()):%s*(.+)$')
+                if expr then expr = expr:sub(2, -2) end -- strip parens
+                
+                -- Style 2: Name: (Expression) Text
+                if not name then
+                    local tName, tExpr, tText = clean:match('^(%S+):%s*(%b())%s*(.+)$')
+                    if tName and tExpr and tText then
+                        name = tName
+                        expr = tExpr:sub(2, -2) -- strip parens
+                        text = tText
+                    end
+                end
+                
+                -- Style 3: Name: Text (Default expression)
+                if not name then 
+                    name, text = clean:match('^(%S+):%s*(.+)$') 
+                end
                 
                 if name then
-                    if expr then expr = expr:sub(2, -2) end
                     if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     
                     local isEnd = text:match('%s*%(end%)$')
