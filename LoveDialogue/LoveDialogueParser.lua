@@ -1,240 +1,154 @@
 local Parser = {}
-local LD_PATH = (...):match('(.-)[^%.]+$')
-local PortraitManager = require(LD_PATH .. "PortraitManager")
-local LD_Character = require(LD_PATH .. "LoveCharacter")
-local CharacterParser = require(LD_PATH .. "LoveCharacterParser")
+local MODULE_PATH = (...):match('(.-)[^%.]+$')
+local Character = require(MODULE_PATH .. "LoveCharacter")
+local utf8 = require("utf8")
 
-local function loadLuaFile(filePath)
-    local chunk, err = loadfile(filePath)
-    if not chunk then
-        print("Error loading file:", err)
-        return nil
-    end
-    return chunk()
-end
-
-local function parseTextWithTags(text)
-    local parsedText = ""
-    local effectsTable = {}
-    local openEffects = {}
-    local currentIndex = 1
-
-    while currentIndex <= #text do
-        local startTag, endTag, tag, content = text:find("{([^:}]+):([^}]*)}", currentIndex)
-        local closingStartTag, closingEndTag, closingTag = text:find("{/([^}]+)}", currentIndex)
-
-        if not startTag and not closingStartTag then
-            parsedText = parsedText .. text:sub(currentIndex)
+local function parseEffects(text)
+    local clean, effects = "", {}
+    local stack = {}
+    local i = 1
+    
+    while i <= #text do
+        local sTag, eTag, tag, content = text:find("{([^/}:]+):?([^}]*)}", i)
+        local sClose, eClose, closeTag = text:find("{/([^}]+)}", i)
+        
+        if not sTag and not sClose then
+            clean = clean .. text:sub(i)
             break
         end
 
-        if closingStartTag and (not startTag or closingStartTag < startTag) then
-            parsedText = parsedText .. text:sub(currentIndex, closingStartTag - 1)
-
-            local effect
-            for i = #openEffects, 1, -1 do
-                if openEffects[i].type == closingTag then
-                    effect = table.remove(openEffects, i)
+        if sClose and (not sTag or sClose < sTag) then
+            clean = clean .. text:sub(i, sClose - 1)
+            for j = #stack, 1, -1 do
+                if stack[j].type == closeTag then
+                    local eff = table.remove(stack, j)
+                    eff.endIndex = utf8.len(clean)
+                    table.insert(effects, eff)
                     break
                 end
             end
-
-            if effect then
-                effect.endIndex = #parsedText
-                table.insert(effectsTable, effect)
-            end
-
-            currentIndex = closingEndTag + 1
+            i = eClose + 1
         else
-            parsedText = parsedText .. text:sub(currentIndex, startTag - 1)
-
-            table.insert(openEffects, {type = tag, content = content, startIndex = #parsedText + 1})
-
-            currentIndex = endTag + 1
+            clean = clean .. text:sub(i, sTag - 1)
+            table.insert(stack, {type = tag, content = content, startIndex = utf8.len(clean) + 1})
+            i = eTag + 1
         end
     end
-
-    for _, effect in ipairs(openEffects) do
-        effect.endIndex = #parsedText
-        table.insert(effectsTable, effect)
-    end
-
-    return parsedText, effectsTable
+    return clean, effects
 end
 
-Parser.parseTextWithTags = parseTextWithTags
+Parser.parseTextWithTags = parseEffects
 
---- Parses a dialogue file and returns a table of lines
---- @param filePath string
---- @return string[]
---- @return table<string, LD_Character>
---- @return table
-function Parser.parseFile(filePath)
-    local lines = {}
-    local currentLine = 1
-    local scenes = {}
-    local currentScene = "default"
-    local characters = {}
+function Parser.parseFile(path, instanceId)
+    local lines, chars, scenes = {}, {}, {}
+    local content = love.filesystem.read(path)
+    if not content then return {}, {}, {} end
     
-    -- Read file content
-    local fileContent = love.filesystem.read(filePath)
-    if not fileContent then
-        error("Could not read file: " .. filePath)
-        return
-    end
+    local rawLines = {}
+    for l in content:gmatch("[^\r\n]+") do table.insert(rawLines, l) end
     
-    -- First pass: Handle portrait definitions
-    for line in fileContent:gmatch("[^\r\n]+") do
-        local characterName, path = line:match("^@portrait%s+(%S+)%s+(.+)$")
-        if characterName and path then
-            local character, error = CharacterParser.parseCharacterFromPortrait(characterName, path)
+    local i = 1
+    for _, line in ipairs(rawLines) do
+        local clean = line:match("^%s*(.-)%s*$")
+        -- Skip empty lines and comments
+        if clean ~= "" and not clean:match("^//") then
             
-            if error or character == nil then
-                print("Error parsing character file:", error)
-            end
+            -- 1. Portraits
+            local pName, pPath = clean:match("^@portrait%s+(%S+)%s+(.+)$")
+            if pName then
+                if not chars[pName] then chars[pName] = Character.new(pName, instanceId) end
+                chars[pName]:loadExpression("Default", pPath, 1, 1, 1)
             
-            characters[characterName] = character
-            PortraitManager.loadPortrait(character, path:match("^%s*(.-)%s*$"))
-        end
-        
-        local characterPath = line:match("@Character%s+([^#%s]+)")
-        if characterPath then
-            local character, error = CharacterParser.parseCharacter(characterPath)
+            -- 2. Logic Commands (Variable Assignment)
+            elseif clean:match("^%$") then
+                local statement = clean:match("^%$%s*(.+)$")
+                table.insert(lines, {
+                    type = "command",
+                    statement = statement
+                })
 
-            if error or character == nil then
-                print("Error parsing character file:", error)
-            else
-                for _, c in ipairs(character) do
-                    characters[c.name] = c
-                end
-            end
-        end
-    end
-    
-    local fileLines = {}
-    for line in fileContent:gmatch("[^\r\n]+") do
-        if not line:match("^@callback") then
-            table.insert(fileLines, line)
-        end
-    end
+            -- 3. Flow Control: IF
+            elseif clean:match("^%[if:.+%]$)"
+                local condition = clean:match("^%[if:%s*(.+)%]$)"
+                table.insert(lines, {
+                    type = "block_if",
+                    condition = condition
+                })
 
-    for _, line in ipairs(fileLines) do
-        local character, text = line:match("^(%S+):%s*(.+)$")
-        if character and text then
-            local characterName = character:gsub("%(.*%)$", "")
-            local expression = character:match("%((.-)%)")
-            if not characters[characterName] then
-                characters[characterName] = LD_Character.new(characterName)
-            end
+            -- 4. Flow Control: ELSE
+            elseif clean:match("^%[else%]$)"
+                table.insert(lines, { type = "block_else" })
 
-            local isEnd = text:match("%(end%)$")
-            if isEnd then
-                text = text:gsub("%s*%(end%)$", "")
-            end
-
-            local parsedText, effects = Parser.parseTextWithTags(text)
-            local parsedLine = {
-                character = characterName,
-                expression = expression or "Default",
-                text = parsedText,
-                isEnd = isEnd,
-                effects = effects,
-                choices = {}
-            }
-
-            lines[currentLine] = parsedLine
-            currentLine = currentLine + 1
-        elseif line:match("^%->") then
-            print("DEBUG: Processing choice line:", line)
-            line = line:gsub("[\r\n]", "")
+            -- 5. Flow Control: ENDIF
+            elseif clean:match("^%[endif%]$)"
+                table.insert(lines, { type = "block_endif" })
             
-            local choiceText, target = line:match("^%->%s*([^%[]+)%s*%[target:([%w_]+)%]%s*$")
+            -- NEW 6. Signals: [signal: Name Args]
+            elseif clean:match("^%[signal:.+%]$)"
+                local signalContent = clean:match("^%[signal:%s*(.+)%]$)"
+                -- Parse "Name Arg1 Arg2..."
+                local name, args = signalContent:match("^(%S+)%s*(.*)$")
+                table.insert(lines, {
+                    type = "signal",
+                    name = name,
+                    args = args -- Raw arg string, can be parsed later or passed as is
+                })
+
+            -- 7. Scene Labels
+            elseif clean:match("^%[.*%]$)"
+                local sName = clean:match("^%[(.*)%]$)"
+                scenes[sName] = #lines + 1 -- Point to the next line index
             
-            print("DEBUG: Raw matches:")
-            print("  Text:", choiceText and '"'..choiceText..'"' or "nil")
-            print("  Target:", target and '"'..target..'"' or "nil")
-            
-            if choiceText then
-                -- Trim whitespace
-                choiceText = choiceText:match("^%s*(.-)%s*$")
-                target = target and target:match("^%s*(.-)%s*$")
+            -- 8. Choices
+            elseif clean:match("^%->") then
+                local txt, remainder = clean:match("^%->%s*([^%[]+)%s*(.*)$")
                 
-                print("DEBUG: After trimming:")
-                print("  Text:", '"'..choiceText..'"')
-                print("  Target:", target and '"'..target..'"' or "nil")
-                
-                local parsedChoiceText, choiceEffects = Parser.parseTextWithTags(choiceText)
-                
-                local choice = {
-                    text = choiceText,
-                    parsedText = parsedChoiceText,
-                    effects = choiceEffects,
-                    target = target
-                }
-                
-                if lines[currentLine - 1] then
-                    table.insert(lines[currentLine - 1].choices, choice)
-                    print("DEBUG: Added choice successfully")
-                else
-                    print("DEBUG: Warning - No previous line to attach choice to")
-                end
-            else
-                print("DEBUG: Failed to parse choice line:", line)
-            end
-        elseif line:match("^%[.*%]") then
-            currentScene = line:match("^%[(.*)%]")
-            scenes[currentScene] = currentLine
-        end
-    end
-
-    return lines, characters, scenes
-end
-
-
-function Parser.printDebugInfo(lines, characters)
-    print("Parsed Lines:")
-    for i, line in ipairs(lines) do
-        print(string.format("Line %d:", i))
-        print(string.format("  Character: %s", line.character))
-        print(string.format("  Text: %s", line.text))
-        print(string.format("  Is End: %s", tostring(line.isEnd)))
-
-        print("  Effects:")
-        for _, effect in ipairs(line.effects) do
-            print(string.format("    Type: %s", effect.type))
-            print(string.format("    Content: %s", effect.content))
-            print(string.format("    Start Index: %d", effect.startIndex))
-            print(string.format("    End Index: %d", effect.endIndex))
-        end
-
-        if line.branches then
-            print("  Branches:")
-            for branchIndex, branch in ipairs(line.branches) do
-                print(string.format("    Branch %d:", branchIndex))
-                print(string.format("      Target Line: %d", branch.targetLine))
-                print(string.format("      Text: %s", branch.text))
-
-                if branch.effects then
-                    print("      Effects:")
-                    for _, effect in ipairs(branch.effects) do
-                        print(string.format("        Type: %s", effect.type))
-                        print(string.format("        Content: %s", effect.content))
-                        print(string.format("        Start Index: %d", effect.startIndex))
-                        print(string.format("        End Index: %d", effect.endIndex))
+                if txt and lines[#lines] then
+                    local target = remainder:match("%[target:([%w_]+)%]")
+                    local condition = remainder:match("%[if:%s*(.-)%]")
+                    local pText, eff = parseEffects(txt)
+                    
+                    if lines[#lines].type == "dialogue" then
+                        table.insert(lines[#lines].choices, { 
+                            text = txt, 
+                            parsedText = pText, 
+                            effects = eff, 
+                            target = target,
+                            condition = condition
+                        })
+                    else
+                        print("Warning: Choice found without preceding dialogue at line " .. i)
                     end
-                else
-                    print("      Effects: None")
                 end
-
+            
+            -- 9. Dialogue
+            else
+                local name, expr, text = clean:match("^(%S-)(%b()):%s*(.+)$")
+                if not name then name, text = clean:match("^(%S+):%s*(.+)$") end
+                
+                if name then
+                    if expr then expr = expr:sub(2, -2) end
+                    if not chars[name] then chars[name] = Character.new(name, instanceId) end
+                    
+                    local isEnd = text:match("%s*%(end%)$")
+                    if isEnd then text = text:gsub("%s*%(end%)$", "") end
+                    
+                    local pText, eff = parseEffects(text)
+                    table.insert(lines, {
+                        type = "dialogue",
+                        character = name,
+                        expression = expr,
+                        text = pText,      
+                        rawText = text,    
+                        effects = eff,
+                        isEnd = isEnd ~= nil,
+                        choices = {}
+                    })
+                end
             end
         end
     end
-
-    print("Characters:")
-    for character, color in pairs(characters) do
-        print(string.format("  Character: %s", character))
-        print(string.format("    Color: R=%f, G=%f, B=%f", color.r, color.g, color.b))
-    end
+    return lines, chars, scenes
 end
 
 return Parser

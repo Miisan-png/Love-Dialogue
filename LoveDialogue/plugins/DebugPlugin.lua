@@ -1,69 +1,57 @@
 local DebugPlugin = {
     name = "Debug",
     description = "Displays dialogue debug information",
-    version = "1.0.0",
+    version = "1.0.2",
     author = "Miisan"
 }
-function DebugPlugin.init(dialogue, pluginData)
-    pluginData.enabled = true
-    pluginData.position = {x = 10, y = 10}
-    pluginData.stats = {
-        lineCount = 0,
-        charCount = 0,
-        choicesMade = 0,
-        startTime = love.timer.getTime()
-    }
-    print("DebugPlugin initialized!")
+
+function DebugPlugin.init(d, data)
+    data.enabled = true
+    data.pos = {x = 10, y = 10}
+    data.stats = { lines = 0, chars = 0, choices = 0, start = love.timer.getTime() }
 end
 
-function DebugPlugin.onCharacterTyped(dialogue, pluginData, char, fullText)
-    pluginData.stats.charCount = pluginData.stats.charCount + 1
-end
+function DebugPlugin.onCharacterTyped(d, data) data.stats.chars = data.stats.chars + 1 end
+function DebugPlugin.onAfterAdvance(d, data) data.stats.lines = data.stats.lines + 1 end
+function DebugPlugin.onChoiceSelected(d, data) data.stats.choices = data.stats.choices + 1 end
 
-function DebugPlugin.onAfterAdvance(dialogue, pluginData)
-    pluginData.stats.lineCount = pluginData.stats.lineCount + 1
-end
-
-function DebugPlugin.onChoiceSelected(dialogue, pluginData, choiceIndex, choice)
-    pluginData.stats.choicesMade = pluginData.stats.choicesMade + 1
-end
-
-function DebugPlugin.handleKeyPress(dialogue, pluginData, key)
+function DebugPlugin.handleKeyPress(d, data, key)
     if key == "f1" then
-        pluginData.enabled = not pluginData.enabled
-        print("Debug display " .. (pluginData.enabled and "enabled" or "disabled"))
-        return true 
+        data.enabled = not data.enabled
+        return true
     end
     return false
 end
 
-function DebugPlugin.onAfterDraw(dialogue, pluginData)
-    if not pluginData.enabled then return end
+function DebugPlugin.onAfterDraw(d, data)
+    if not data.enabled then return end
     local r, g, b, a = love.graphics.getColor()
+    
     local font = love.graphics.getFont()
+    local lineHeight = font:getHeight() + 2
+    local totalHeight = lineHeight * 9 -- 8 lines + padding
+    
     love.graphics.setColor(0, 0, 0, 0.7)
-    love.graphics.rectangle("fill", pluginData.position.x, pluginData.position.y, 200, 120)
+    love.graphics.rectangle("fill", data.pos.x, data.pos.y, 240, totalHeight)
+    
     love.graphics.setColor(0, 1, 0, 1)
-    local runtime = love.timer.getTime() - pluginData.stats.startTime
-    local y = pluginData.position.y + 5
-    love.graphics.print("-- DIALOGUE DEBUG --", pluginData.position.x + 5, y)
-    y = y + 20
-    love.graphics.print("Current line: " .. dialogue.currentLine, pluginData.position.x + 5, y)
-    y = y + 15
-    love.graphics.print("Character: " .. (dialogue.currentCharacter or "None"), pluginData.position.x + 5, y)
-    y = y + 15
-    love.graphics.print("Lines viewed: " .. pluginData.stats.lineCount, pluginData.position.x + 5, y)
-    y = y + 15
-    love.graphics.print("Characters typed: " .. pluginData.stats.charCount, pluginData.position.x + 5, y)
-    y = y + 15
-    love.graphics.print("Choices made: " .. pluginData.stats.choicesMade, pluginData.position.x + 5, y)
-    y = y + 15
-    love.graphics.print("Runtime: " .. string.format("%.1f", runtime) .. "s", pluginData.position.x + 5, y)
+    local y = data.pos.y + 5
+    local function pr(t) love.graphics.print(t, data.pos.x + 5, y); y = y + lineHeight end
+    
+    pr("-- DEBUG --")
+    pr("Line: " .. (d.state.currentLineIndex or 0))
+    pr("Char: " .. (d.state.currentCharacter or "None"))
+    pr("Lines Seen: " .. data.stats.lines)
+    pr("Chars Typed: " .. data.stats.chars)
+    pr("Choices: " .. data.stats.choices)
+    pr("Time: " .. string.format("%.1fs", love.timer.getTime() - data.stats.start))
+    pr("Res Count: " .. string.format("%.2f MB", collectgarbage("count")/1024))
+    
     love.graphics.setColor(r, g, b, a)
 end
-function DebugPlugin.cleanup(dialogue, pluginData)
-    print("DebugPlugin cleaned up after " .. string.format("%.1f", 
-        love.timer.getTime() - pluginData.stats.startTime) .. " seconds")
+
+function DebugPlugin.cleanup(d, data)
+    print("Debug ended. Runtime: " .. string.format("%.1fs", love.timer.getTime() - data.stats.start))
 end
 
 return DebugPlugin

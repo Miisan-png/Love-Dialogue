@@ -1,154 +1,99 @@
 local ResourceManager = {}
-ResourceManager.resources = {
-    images = {},
-    fonts = {},
-    quads = {},
-    sounds = {},  -- For future sound support (not yet LOL)
-    custom = {}  
+local resources = {
+    cache = {}, 
+    owners = {} 
 }
 
-ResourceManager.instanceRegistry = {}
-
--- Add a resource to be tracked by a specific dialogue instance
--- @param instanceId string or number: unique identifier for the dialogue instance
--- @param resourceType string: type of resource ("images", "fonts", etc.)
--- @param resource userdata: the Love2D resource to track
--- @param name string (optional): a name to identify this resource
--- @return the resource for chaining
-function ResourceManager:track(instanceId, resourceType, resource, name)
-    if not self.resources[resourceType] then
-        self.resources[resourceType] = {}
+local function getCacheKey(type, uniqueKey, ...)
+    local args = {...}
+    local safeArgs = {}
+    for i, v in ipairs(args) do
+        table.insert(safeArgs, tostring(v))
     end
-
-    -- Reuse existing resource if it already exists (based on name)
-    local key = name or tostring(resource)
-    local existing = self.resources[resourceType][key]
-    if existing then
-        -- Track the existing one under the new instance, too
-        resource = existing
-    else
-        self.resources[resourceType][key] = resource
-    end
-
-    -- Register under instance
-    if not self.instanceRegistry[instanceId] then
-        self.instanceRegistry[instanceId] = {}
-    end
-    if not self.instanceRegistry[instanceId][resourceType] then
-        self.instanceRegistry[instanceId][resourceType] = {}
-    end
-
-    table.insert(self.instanceRegistry[instanceId][resourceType], {
-        resource = resource,
-        name = key
-    })
-
-    return resource
+    -- Use uniqueKey instead of path
+    return string.format("%s:%s:%s", type, tostring(uniqueKey), table.concat(safeArgs, ":"))
 end
 
--- Create and track an image
--- @param instanceId string: dialogue instance identifier
--- @param path string: path to the image file
--- @param name string (optional): name for this resource
--- @return love.Image or nil if creation failed
-function ResourceManager:newImage(instanceId, path, name)
-    local success, result = pcall(love.graphics.newImage, path)
-    if success and result then
-        return self:track(instanceId, "images", result, name or path)
-    else
-        print("ResourceManager: Failed to load image " .. path .. ": " .. tostring(result))
-        return nil
-    end
-end
-
--- Create and track a font
--- @param instanceId string: dialogue instance identifier
--- @param size number: font size
--- @param path string (optional): path to font file
--- @param name string (optional): name for this resource
--- @return love.Font or nil if creation failed
-function ResourceManager:newFont(instanceId, size, path, name)
-    local success, result
-    if path then
-        success, result = pcall(love.graphics.newFont, path, size)
-    else
-        success, result = pcall(love.graphics.newFont, size)
-    end
+function ResourceManager:get(instanceId, type, uniqueKey, loader, ...)
+    local key = getCacheKey(type, uniqueKey, ...)
     
-    if success and result then
-        return self:track(instanceId, "fonts", result, name or tostring(size))
-    else
-        print("ResourceManager: Failed to load font: " .. tostring(result))
-        return nil
+    if not resources.cache[key] then
+        -- Pass ... directly to loader, ignoring uniqueKey in the call
+        local success, asset = pcall(loader, ...)
+        if not success or not asset then
+            print(string.format("ResourceManager: Failed to load %s (%s)", type, tostring(uniqueKey)))
+            return nil
+        end
+        resources.cache[key] = { asset = asset, refCount = 0 }
     end
-end
 
--- Create and track a quad
--- @param instanceId string: dialogue instance identifier
--- @param x, y, width, height: quad dimensions
--- @param sw, sh: texture dimensions
--- @param name string (optional): name for this quad
--- @return love.Quad or nil if creation failed
-function ResourceManager:newQuad(instanceId, x, y, width, height, sw, sh, name)
-    local success, result = pcall(love.graphics.newQuad, x, y, width, height, sw, sh)
-    if success and result then
-        return self:track(instanceId, "quads", result, name)
-    else
-        print("ResourceManager: Failed to create quad: " .. tostring(result))
-        return nil
-    end
-end
-
-
-function ResourceManager:releaseInstance(instanceId)
-    if not self.instanceRegistry[instanceId] then
-        print("ResourceManager: No resources found for instance " .. tostring(instanceId))
-        return
-    end
+    local entry = resources.cache[key]
     
-    for resourceType, resources in pairs(self.instanceRegistry[instanceId]) do
-        for _, resourceData in ipairs(resources) do
-            local resource = resourceData.resource
-            local name = resourceData.name
-            
-            if resource.release and type(resource.release) == "function" then
-                local success, err = pcall(resource.release, resource)
-                if not success then
-                    print("ResourceManager: Error releasing " .. resourceType .. " " .. name .. ": " .. tostring(err))
-                end
-            elseif resource.type and resource:type() == "Canvas" then
-                if resource.release and type(resource.release) == "function" then
-                    pcall(resource.release, resource)
-                end
-            end
-            
-            if self.resources[resourceType] then
-                self.resources[resourceType][name] = nil
+    -- IMPORTANT: Check if asset is released (if applicable) and reload if necessary
+    if entry.asset.type and entry.asset:type() == "Image" and entry.asset.isReleased and entry.asset:isReleased() then
+         -- Force reload released asset
+        local success, asset = pcall(loader, ...)
+        if success and asset then
+             entry.asset = asset
+        end
+    end
+
+    if not resources.owners[instanceId] then resources.owners[instanceId] = {} end
+    
+    if not resources.owners[instanceId][key] then
+        resources.owners[instanceId][key] = true
+        entry.refCount = entry.refCount + 1
+    end
+
+    return entry.asset
+end
+
+function ResourceManager:getImage(id, path)
+    -- uniqueKey is path, pass path to loader
+    return self:get(id, "image", path, love.graphics.newImage, path)
+end
+
+function ResourceManager:getFont(id, size, path, name)
+    local loader = function(p, s) 
+        if p and p ~= "default" and love.filesystem.getInfo(p) then
+            return love.graphics.newFont(p, s)
+        else
+            return love.graphics.newFont(s) 
+        end
+    end
+    -- uniqueKey is constructed string, pass path and size to loader
+    return self:get(id, "font", (path or "default")..size, loader, path, size)
+end
+
+function ResourceManager:getQuad(id, x, y, w, h, sw, sh, name)
+    -- uniqueKey is name, pass quad coords to loader
+    return self:get(id, "quad", name or string.format("%d_%d_%d_%d", x, y, w, h), love.graphics.newQuad, x, y, w, h, sw, sh)
+end
+
+function ResourceManager:releaseInstance(id)
+    if not resources.owners[id] then return end
+    
+    for key in pairs(resources.owners[id]) do
+        local entry = resources.cache[key]
+        if entry then
+            entry.refCount = entry.refCount - 1
+            if entry.refCount <= 0 then
+                if entry.asset.release then pcall(entry.asset.release, entry.asset) end
+                resources.cache[key] = nil
             end
         end
     end
-    
-    self.instanceRegistry[instanceId] = nil
+    resources.owners[id] = nil
     collectgarbage("collect")
 end
 
--- Get a resource by name
--- @param resourceType string: type of resource ("images", "fonts", etc.)
--- @param name string: name of the resource
--- @return resource or nil if not found
-function ResourceManager:get(resourceType, name)
-    if self.resources[resourceType] and self.resources[resourceType][name] then
-        return self.resources[resourceType][name]
-    end
-    return nil
+function ResourceManager:cleanup()
+    for id in pairs(resources.owners) do self:releaseInstance(id) end
 end
+
+-- Alias for compatibility
 function ResourceManager:releaseAll()
-    for instanceId, _ in pairs(self.instanceRegistry) do
-        self:releaseInstance(instanceId)
-    end
-    for resourceType, _ in pairs(self.resources) do
-        self.resources[resourceType] = {}
-    end
+    self:cleanup()
 end
 
 return ResourceManager

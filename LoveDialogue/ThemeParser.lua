@@ -13,59 +13,37 @@ local PROPERTY_MAP = {
     fade_out = "fadeOutDuration"
 }
 
-function ThemeParser.parseColor(colorStr)
-    local r, g, b, a = colorStr:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
-    if r and g and b and a then
-        return {
-            tonumber(r)/255,
-            tonumber(g)/255,
-            tonumber(b)/255,
-            tonumber(a)/255
-        }
-    end
-    return nil
+function ThemeParser.parseColor(str)
+    local r, g, b, a = str:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+    return r and {tonumber(r)/255, tonumber(g)/255, tonumber(b)/255, tonumber(a)/255} or nil
 end
 
-function ThemeParser.parseTheme(filePath)
-    local theme = {}
-    local content = love.filesystem.read(filePath)
+function ThemeParser.parseTheme(path)
+    local theme, section = {}, nil
+    local content = love.filesystem.read(path)
     if not content then return nil end
 
-    local isThemeSection = false
-    
     for line in content:gmatch("[^\r\n]+") do
-        if line:match("^%[theme%]") then
-            isThemeSection = true
-        elseif line:match("^%[") then
-            isThemeSection = false
-        elseif isThemeSection then
-            local property, value = line:match("^%s*([%w_]+)%s*:%s*(.+)%s*$")
-            if property and value then
-                local mappedProperty = PROPERTY_MAP[property] or property
-                if property:match("color$") then
-                    theme[mappedProperty] = ThemeParser.parseColor(value)
-                else
-                    theme[mappedProperty] = tonumber(value)
-                end
+        if line:match("^%[theme%]") then section = "theme"
+        elseif line:match("^%[") then section = nil
+        elseif section == "theme" then
+            local k, v = line:match("^%s*([%w_]+)%s*:%s*(.+)%s*$")
+            if k and v then
+                local mapK = PROPERTY_MAP[k] or k
+                theme[mapK] = k:match("color$") and ThemeParser.parseColor(v) or tonumber(v)
             end
         end
     end
-    
     return theme
 end
 
 function ThemeParser.applyTheme(dialogue, theme)
-    for themeKey, dialogueKey in pairs(PROPERTY_MAP) do
-        local value = theme[dialogueKey]
-        if value then
-            if themeKey == "font_size" then
-                dialogue.font = love.graphics.newFont(value)
-            elseif themeKey == "name_font_size" then
-                dialogue.nameFont = love.graphics.newFont(value)
-            else
-                dialogue[dialogueKey] = value
-            end
-        end
+    for k, v in pairs(theme) do
+        if dialogue.config[k] ~= nil then dialogue.config[k] = v end
+    end
+    -- Trigger resource reload if font sizes changed
+    if theme.fontSize or theme.nameFontSize or theme.boxHeight or theme.padding then
+        if dialogue.adjustLayout then dialogue:adjustLayout() end
     end
 end
 

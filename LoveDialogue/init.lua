@@ -1,4 +1,3 @@
-local LD_PATH = (...) .. "."
-local LoveDialogue = require(LD_PATH .. "LoveDialogue")
-
-return LoveDialogue
+local MODULE_NAME = ...
+require(MODULE_NAME .. ".Logic")
+return require(MODULE_NAME .. ".LoveDialogue")

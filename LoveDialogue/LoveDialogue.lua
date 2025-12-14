@@ -1,725 +1,704 @@
-local utf8 = require("utf8")
-local LD_PATH = (...):match('(.-)[^%.]+$')
+local MODULE_PATH = (...):match('(.-)[^%.]+$')
 
-local ResourceManager = require(LD_PATH .. "ResourceManager")
-local Parser = require(LD_PATH .. "LoveDialogueParser")
-local Constants = require(LD_PATH .. "DialogueConstants")
-local TextEffects = require(LD_PATH .. "TextEffects")
-local ThemeParser = require(LD_PATH .. "ThemeParser")  
-local PluginManager = require(LD_PATH .. "PluginManager")  
+local ResourceManager = require(MODULE_PATH .. "ResourceManager")
+local Parser = require(MODULE_PATH .. "LoveDialogueParser")
+local Constants = require(MODULE_PATH .. "DialogueConstants")
+local TextEffects = require(MODULE_PATH .. "TextEffects")
+local ThemeParser = require(MODULE_PATH .. "ThemeParser")
+local PluginManager = require(MODULE_PATH .. "PluginManager")
+local ninePatch = require(MODULE_PATH .. "9patch")
+local Logic = require(MODULE_PATH .. "Logic")
+local utf8 = require("utf8")
 
 local LoveDialogue = {}
-local ninePatch = require(LD_PATH .. "9patch")
+LoveDialogue.__index = LoveDialogue
 
 local function isCJK(char)
-    local codepoint = utf8.codepoint(char)
-    return (codepoint >= 0x4E00 and codepoint <= 0x9FFF) or   -- 基本汉字
-           (codepoint >= 0x3400 and codepoint <= 0x4DBF) or   -- 扩展A
-           (codepoint >= 0x20000 and codepoint <= 0x2A6DF)    -- 扩展B
+    local cp = utf8.codepoint(char)
+    return (cp >= 0x4E00 and cp <= 0x9FFF) or
+           (cp >= 0x3400 and cp <= 0x4DBF) or
+           (cp >= 0x20000 and cp <= 0x2A6DF)
 end
 
-function LoveDialogue:new(config)
-    config = config or {} 
+function LoveDialogue.new(config)
+    config = config or {}
+    local self = setmetatable({}, LoveDialogue)
     
-    -- Generate a unique ID for this dialogue instance
-    local instanceId = tostring({}):match("table: (.*)")
+    self.instanceId = tostring(self):sub(8)
     
-    ---@class LoveDialogue
-    ---@field characters table<string, LD_Character>
-    local obj = {
-        -- Add instance ID for resource tracking
-        instanceId = instanceId,
-        
+    self.config = {
         ninePatchPath = config.ninePatchPath,
         edgeWidth = config.edgeWidth or 10,
         edgeHeight = config.edgeHeight or 10,
-        lines = {},
-        characters = {},
-        boxtype = config.useNinePatch or false,
-        character_type = config.character_type or false,--0=原本的角色显示，1=竖直显示
-        currentLine = 1,
-        selectedChoice = 1,
-        isActive = false,
-        letterSpacingLatin = config.letterSpacingLatin or 4,  -- 西文字符间距
-        letterSpacingCJK = config.letterSpacingCJK or 10,     -- 汉字字符间距
-        lineSpacing = config.lineSpacing or 16,               -- 行间距
+        useNinePatch = config.useNinePatch or false,
+        characterType = config.character_type or 0,
+        letterSpacingLatin = config.letterSpacingLatin or 4,
+        letterSpacingCJK = config.letterSpacingCJK or 10,
+        lineSpacing = config.lineSpacing or 16,
         boxColor = config.boxColor or {0.1, 0.1, 0.1, 0.9},
         textColor = config.textColor or {1, 1, 1, 1},
         nameColor = config.nameColor or {1, 0.8, 0.2, 1},
         padding = config.padding or 20,
         boxHeight = config.boxHeight or 150,
         portraitSize = config.portraitSize or 100,
-        typingSpeed = config.typingSpeed or Constants.TYPING_SPEED,
+        baseTypingSpeed = config.typingSpeed or Constants.TYPING_SPEED,
+        fadeInDuration = config.fadeInDuration or Constants.FADE_IN_DURATION,
+        fadeOutDuration = config.fadeOutDuration or Constants.FADE_OUT_DURATION,
+        enableFadeIn = config.enableFadeIn ~= false,
+        enableFadeOut = config.enableFadeOut ~= false,
+        autoLayout = config.autoLayoutEnabled ~= false,
+        portraitEnabled = config.portraitEnabled ~= false,
+        skipKey = config.skipKey or "f",
+        controls = config.controls or {
+            next = {"return", "space"},
+            up = {"up"},
+            down = {"down"},
+            toggleAuto = {"a"},
+            toggleSpeed = {"t"}
+        },
+        autoAdvanceDelay = config.autoAdvanceDelay or 2.0,
+        speeds = config.textSpeeds or { slow = 0.08, normal = 0.05, fast = 0.02 },
+        initialSpeed = config.initialSpeedSetting or "normal",
+        pluginData = config.pluginData or {},
+        initialVariables = config.initialVariables or {}
+    }
+
+    self.state = {
+        lines = {},
+        characters = {},
+        scenes = {},
+        variables = {}, -- Stores runtime variables
+        currentLineIndex = 1,
+        isActive = false,
+        status = "inactive", 
         typewriterTimer = 0,
         displayedText = "",
         currentCharacter = "",
         boxOpacity = 0,
-        fadeInDuration = config.fadeInDuration or Constants.FADE_IN_DURATION,
-        fadeOutDuration = config.fadeOutDuration or Constants.FADE_OUT_DURATION,
         animationTimer = 0,
-        state = "inactive",
-        enableFadeIn = (config.enableFadeIn ~= nil) and config.enableFadeIn or true,
-        enableFadeOut = (config.enableFadeOut ~= nil) and config.enableFadeOut or true,
-        autoLayoutEnabled = (config.autoLayoutEnabled ~= nil) and config.autoLayoutEnabled or true,
         effects = {},
-        currentBranch = nil,
-        selectedBranchIndex = 1,
         waitTimer = 0,
         choiceMode = false,
-        portraitEnabled = (config.portraitEnabled ~= nil) and config.portraitEnabled or true,
-        ninePatchImage = nil,
-        patch = nil,
-        
-        skipKey = config.skipKey or "f",
-        textSpeeds = config.textSpeeds or {
-            slow = 0.08,
-            normal = 0.05,
-            fast = 0.02
-        },
-        currentSpeedSetting = config.initialSpeedSetting or "normal",
-        autoAdvance = (config.autoAdvance ~= nil) and config.autoAdvance or false,
-        autoAdvanceDelay = config.autoAdvanceDelay or 2.0,
+        selectedChoice = 1,
+        activeChoices = {}, -- Subset of choices that passed condition check
+        currentExpression = "Default",
+        autoAdvance = config.autoAdvance or false,
         autoAdvanceTimer = 0,
-        
-        -- Plugin storage
-        plugins = {},
-        pluginData = config.pluginData or {},
+        typingSpeed = self.config.speeds[self.config.initialSpeed] or 0.05,
+        currentSpeedSetting = self.config.initialSpeed
     }
-    
-    -- Initialize typing speed from speed setting
-    obj.typingSpeed = obj.textSpeeds[obj.currentSpeedSetting] or Constants.TYPING_SPEED
-    
-    setmetatable(obj, self)
-    self.__index = self
-    
-    -- Create fonts using ResourceManager
-    obj.font = ResourceManager:newFont(
-        instanceId, 
-        config.fontSize or Constants.DEFAULT_FONT_SIZE,
-        nil,
-        "main_font"
-    )
-    
-    obj.nameFont = ResourceManager:newFont(
-        instanceId, 
-        config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE,
-        nil,
-        "name_font"
-    )
-    
-    obj.boxtype = config.useNinePatch or false
-    obj.ninePatchPath = config.ninePatchPath
 
-    if obj.boxtype and obj.ninePatchPath then
-        obj.ninePatchImage = ResourceManager:newImage(instanceId, obj.ninePatchPath, "ninePatchImage")
-        if obj.ninePatchImage then
-            obj:createNinePatchQuads()
-        else
-            print("Warning: Failed to load 9-patch image")
-            obj.boxtype = false -- Fall back to rectangle if image fails to load
-        end
+    -- Deep copy initial variables
+    for k,v in pairs(self.config.initialVariables) do
+        self.state.variables[k] = v
     end
-    
-    -- Initialize plugins if any are provided
+
+    self.resources = {
+        font = ResourceManager:getFont(self.instanceId, config.fontSize or Constants.DEFAULT_FONT_SIZE, nil, "main_font"),
+        nameFont = ResourceManager:getFont(self.instanceId, config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE, nil, "name_font"),
+        ninePatch = nil,
+        patch = nil
+    }
+
+    if self.config.useNinePatch and self.config.ninePatchPath then
+        self:loadNinePatch()
+    end
+
+    self.plugins = {}
     if config.plugins then
-        for _, pluginName in ipairs(config.plugins) do
-            obj:registerPlugin(pluginName)
+        for _, name in ipairs(config.plugins) do
+            self:registerPlugin(name)
         end
     end
-    
-    obj:triggerPluginEvent("onDialogueCreated", obj)
 
-    return obj
+    self:triggerPluginEvent("onDialogueCreated")
+    return self
 end
 
--- Register a plugin by name
-function LoveDialogue:registerPlugin(pluginName)
-    local plugin = PluginManager:getPlugin(pluginName)
+function LoveDialogue:loadNinePatch()
+    local img = ResourceManager:getImage(self.instanceId, self.config.ninePatchPath)
+    if img then
+        self.resources.ninePatch = img
+        self.resources.patch = ninePatch.loadSameEdge(img, self.config.edgeWidth, self.config.edgeHeight)
+    else
+        self.config.useNinePatch = false
+    end
+end
+
+function LoveDialogue:registerPlugin(name)
+    local plugin = PluginManager:getPlugin(name)
     if plugin then
         table.insert(self.plugins, plugin)
-        self.pluginData[pluginName] = self.pluginData[pluginName] or {}
-        
-        -- Initialize plugin if it has an init function
-        if plugin.init then
-            plugin.init(self, self.pluginData[pluginName])
-        end
-        
-        return true
+        self.config.pluginData[name] = self.config.pluginData[name] or {}
+        if plugin.init then plugin.init(self, self.config.pluginData[name]) end
     end
-    print("Warning: Plugin '" .. pluginName .. "' not found")
-    return false
 end
 
--- Trigger an event for all registered plugins
-function LoveDialogue:triggerPluginEvent(eventName, ...)
+function LoveDialogue:triggerPluginEvent(event, ...)
     for _, plugin in ipairs(self.plugins) do
-        if plugin[eventName] then
-            plugin[eventName](self, self.pluginData[plugin.name], ...)
+        if plugin[event] then
+            plugin[event](self, self.config.pluginData[plugin.name], ...)
         end
     end
 end
 
-function LoveDialogue:createNinePatchQuads()
-    -- Don't try to reload the image if it's missing
-    if not self.ninePatchImage and self.ninePatchPath then
-        self.ninePatchImage = ResourceManager:newImage(self.instanceId, self.ninePatchPath, "ninePatchImage")
-        if not self.ninePatchImage then
-            print("Warning: Failed to load 9-patch image")
-            return
-        end
-    end
-    
-    -- Confirm image validity
-    if self.ninePatchImage and self.ninePatchImage:typeOf("Image") then
-        local edgeWidth = self.edgeWidth or 10
-        local edgeHeight = self.edgeHeight or 10
-        self.patch = ninePatch.loadSameEdge(self.ninePatchImage, edgeWidth, edgeHeight)
-        
-        -- Track quad resources if created
-        if self.patch and self.patch.quads then
-            for i, quad in ipairs(self.patch.quads) do
-                ResourceManager:track(self.instanceId, "quads", quad, "ninePatchQuad_" .. i)
-            end
-        end
-    else
-        print("Warning: No valid 9-patch image available")
-    end
-end
-
-function LoveDialogue:loadFromFile(filePath)
-    self.lines, self.characters, self.scenes = Parser.parseFile(filePath)
-    
-    -- Assign instance ID to all characters for resource tracking
-    for name, character in pairs(self.characters) do
-        character.instanceId = self.instanceId
-    end
-    -- Let plugins know we've loaded a file
-    self:triggerPluginEvent("onFileLoaded", filePath, self.lines, self.characters, self.scenes)
+function LoveDialogue:loadFromFile(path)
+    local lines, chars, scenes = Parser.parseFile(path, self.instanceId)
+    self.state.lines = lines
+    self.state.characters = chars
+    self.state.scenes = scenes
+    self:triggerPluginEvent("onFileLoaded", path, lines, chars, scenes)
 end
 
 function LoveDialogue:start()
-    self.isActive = true
-    self.currentLine = 1
-    self.state = self.enableFadeIn and "fading_in" or "active"
-    self.animationTimer = 0
-    self.boxOpacity = self.enableFadeIn and 0 or 1
-    self:setCurrentDialogue()
-    -- Let plugins know we're starting
+    self.state.isActive = true
+    self.state.currentLineIndex = 1
+    self.state.status = self.config.enableFadeIn and "fading_in" or "active"
+    self.state.animationTimer = 0
+    self.state.boxOpacity = self.config.enableFadeIn and 0 or 1
+    self:processCurrentLine() -- Changed from updateCurrentDialogue to handle logic skipping
     self:triggerPluginEvent("onDialogueStart")
 end
 
-function LoveDialogue:skipCurrentText()
-    if self.isActive and self.state == "active" and not self.choiceMode then
-        local currentFullText = self.lines[self.currentLine].text
-        if self.displayedText ~= currentFullText then
-            self.displayedText = currentFullText
-            -- Let plugins know we skipped text (ooi)
-            self:triggerPluginEvent("onTextSkipped")
-            
-            return true
-        end
+-- Replaces updateCurrentDialogue. Recursive/Looping to skip non-dialogue lines.
+function LoveDialogue:processCurrentLine()
+    local line = self.state.lines[self.state.currentLineIndex]
+    
+    if not line then 
+        return self:endDialogue() 
     end
-    return false
-end
 
-function LoveDialogue:setTextSpeed(speedSetting)
-    if self.textSpeeds[speedSetting] then
-        self.currentSpeedSetting = speedSetting
-        self.typingSpeed = self.textSpeeds[speedSetting]
-        -- Let plugins know we changed speed
-        self:triggerPluginEvent("onSpeedChanged", speedSetting, self.typingSpeed)
+    -- Handle Logic Lines
+    if line.type == "command" then
+        Logic.execute(line.statement, self.state.variables)
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine() -- Recursively execute next line immediately
         
-        return true
-    end
-    return false
-end
-
-function LoveDialogue:cycleTextSpeed()
-    local speeds = {"slow", "normal", "fast"}
-    local currentIndex = 1
-    
-    for i, speed in ipairs(speeds) do
-        if speed == self.currentSpeedSetting then
-            currentIndex = i
-            break
-        end
-    end
-    
-    currentIndex = currentIndex % #speeds + 1
-    self:setTextSpeed(speeds[currentIndex])
-    return speeds[currentIndex]
-end
-
-function LoveDialogue:toggleAutoAdvance()
-    self.autoAdvance = not self.autoAdvance
-    self.autoAdvanceTimer = 0
-    -- Let plugins know we toggled auto-advance
-    self:triggerPluginEvent("onAutoAdvanceToggled", self.autoAdvance)
-    
-    return self.autoAdvance
-end
-
-function LoveDialogue:setAutoAdvanceDelay(seconds)
-    self.autoAdvanceDelay = seconds
-end
-
-function LoveDialogue:update(dt)
-    if not self.isActive then return end
-    -- Let plugins modify update behavior if needed
-    local modifiedDt = dt
-    for _, plugin in ipairs(self.plugins) do
-        if plugin.modifyDeltaTime then
-            modifiedDt = plugin.modifyDeltaTime(self, self.pluginData[plugin.name], modifiedDt)
-        end
-    end
-    
-    -- Let plugins know we're updating
-    self:triggerPluginEvent("onBeforeUpdate", modifiedDt)
-    if self.state == "fading_in" then
-        self.animationTimer = self.animationTimer + modifiedDt
-        self.boxOpacity = math.min(self.animationTimer / self.fadeInDuration, 1)
-        if self.animationTimer >= self.fadeInDuration then
-            self.state = "active"
-            self:triggerPluginEvent("onFadeInComplete")
-        end
-    elseif self.state == "active" then
-        if not self.choiceMode then
-            local currentFullText = self.lines[self.currentLine].text
-            if self.displayedText ~= currentFullText then
-                if self.waitTimer > 0 then
-                    self.waitTimer = self.waitTimer - modifiedDt
-                else
-                    self.typewriterTimer = self.typewriterTimer + modifiedDt
-                    if self.typewriterTimer >= self.typingSpeed then
-                        self.typewriterTimer = 0
-                        local nextCharIndex = utf8.len(self.displayedText) + 1
-                        local nextPos = utf8.offset(currentFullText, nextCharIndex)
-                        local endPos = utf8.offset(currentFullText, nextCharIndex + 1) or #currentFullText + 1
-                        local newChar = string.sub(currentFullText, nextPos, endPos - 1)
-                        self.displayedText = self.displayedText .. newChar
-                        -- Let plugins know we added a character
-                        self:triggerPluginEvent("onCharacterTyped", newChar, self.displayedText)
-                    end
-                end
-            elseif self.displayedText == currentFullText and not self.autoAdvance then
-                -- Text is fully displayed
-                self:triggerPluginEvent("onUtteranceEnd", self.displayedText)
-            elseif self.autoAdvance then
-                -- Text is fully displayed, start auto-advance timer
-                self.autoAdvanceTimer = self.autoAdvanceTimer + modifiedDt
-                if self.autoAdvanceTimer >= self.autoAdvanceDelay then
-                    self.autoAdvanceTimer = 0
-                    self:advance()
-                end
-            end
-        end
-    elseif self.state == "fading_out" then
-        self.animationTimer = self.animationTimer + modifiedDt
-        self.boxOpacity = 1 - math.min(self.animationTimer / self.fadeOutDuration, 1)
-        if self.animationTimer >= self.fadeOutDuration then
-            self.isActive = false
-            self.state = "inactive"
-            self:triggerPluginEvent("onFadeOutComplete")
-            self:destroy() -- Clean up resources after fade out
-        end
-    end
-
-    if self.autoLayoutEnabled then
-        self:adjustLayout()
-    end
-    
-    -- Let plugins know we finished updating
-    self:triggerPluginEvent("onAfterUpdate", modifiedDt)
-end
-
-function LoveDialogue:draw()
-    if not self.isActive then return end
-    
-    -- Let plugins modify drawing if needed
-    self:triggerPluginEvent("onBeforeDraw")
-    
-    local windowWidth, windowHeight = love.graphics.getDimensions()
-    local boxWidth = windowWidth - 2 * self.padding
-
-    -- Draw character portrait for vertical mode
-    if self.character_type then
-        if self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait() then
-            local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
-            local sw, sh = portrait.quad:getTextureDimensions()
-            
-            -- Calculate position
-            local portraitX = (windowWidth - sw)/2
-            local portraitY = windowHeight - sh
-
-            love.graphics.setColor(1, 1, 1, self.boxOpacity)
-            self.characters[self.currentCharacter]:draw(
-                self.currentExpression,
-                portraitX,
-                portraitY,
-                1,
-                1
-            )
-        end
-    end
-
-    -- Draw dialogue box
-    if self.boxtype == false then
-        love.graphics.setColor(self.boxColor[1], self.boxColor[2], self.boxColor[3], self.boxColor[4] * self.boxOpacity)
-        love.graphics.rectangle("fill", self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
-    else
-        if self.patch then
-            -- Set color for 9-patch drawing
-            love.graphics.setColor(1, 1, 1, self.boxOpacity)
-            ninePatch.draw(self.patch, self.padding, windowHeight - self.boxHeight - self.padding, boxWidth, self.boxHeight)
-        end
-    end
-
-    local textX = self.padding * 2
-    local textY = windowHeight - self.boxHeight - self.padding + self.padding
-    local textLimit = boxWidth - (self.padding * 3)
-
-    -- Determine portrait visibility based on character_type
-    local hasPortrait = false
-    if not self.character_type then
-        hasPortrait = self.portraitEnabled and self.currentCharacter and self.characters[self.currentCharacter]:hasPortrait()
-    end
-
-    -- Draw horizontal portrait mode
-    if hasPortrait and not self.character_type then
-        local portrait = self.characters[self.currentCharacter]:getExpression(self.currentExpression)
-        local portraitX = self.padding * 2
-        local portraitY = windowHeight - self.boxHeight - self.padding + self.padding
-        local sw, sh = portrait.quad:getTextureDimensions()
-
-        love.graphics.setColor(0, 0, 0, self.boxOpacity * 0.5)
-        love.graphics.rectangle("fill", portraitX, portraitY, self.portraitSize, self.portraitSize)
-        
-        love.graphics.setColor(1, 1, 1, self.boxOpacity)
-        self.characters[self.currentCharacter]:draw(
-            self.currentExpression, 
-            portraitX, 
-            portraitY, 
-            self.portraitSize / sw, 
-            self.portraitSize / sh
-        )
-        textX = self.padding * 3 + self.portraitSize
-        textLimit = boxWidth - self.portraitSize - (self.padding * 4)
-    end
-
-    -- Draw character name if present
-    if self.currentCharacter and self.currentCharacter ~= "" then
-        love.graphics.setFont(self.nameFont)
-        local nameColor = self.characters[self.currentCharacter].nameColor or self.nameColor
-        love.graphics.setColor(nameColor.r or nameColor[1], nameColor.g or nameColor[2], 
-                             nameColor.b or nameColor[3], self.boxOpacity)
-        love.graphics.print(self.currentCharacter, textX, textY)
-        textY = textY + self.nameFont:getHeight() + 5
-    end
-
-    -- Set font for dialogue text
-    love.graphics.setFont(self.font)
-    
-    -- Draw choices or text based on mode
-    if self.choiceMode then
-        for i, choice in ipairs(self.lines[self.currentLine].choices) do
-            local prefix = (i == self.selectedChoice) and "> " or "  "
-            local x = textX + self.font:getWidth(prefix)
-            local y = textY + (i - 1) * self.lineSpacing
-            
-            local choiceColor = (i == self.selectedChoice) and {1, 1, 0, self.boxOpacity} or {1, 1, 1, self.boxOpacity}
-            love.graphics.setColor(unpack(choiceColor))
-            love.graphics.print(prefix, textX, y)
-            
-            if choice.parsedText then
-                self:drawFormattedText(choice.parsedText, x, y, choiceColor, choice.effects)
-            end
-        end
-    else
-        -- Draw regular text with formatting and effects
-        self:drawFormattedText(self.displayedText, textX, textY, 
-            {self.textColor[1], self.textColor[2], self.textColor[3], self.textColor[4] * self.boxOpacity},
-            self.effects, textLimit)
-    end
-    
-    -- Draw auto-advance indicator if enabled
-    if self.autoAdvance and self.state == "active" and self.displayedText == self.lines[self.currentLine].text then
-        local progress = self.autoAdvanceTimer / self.autoAdvanceDelay
-        love.graphics.setColor(1, 1, 1, self.boxOpacity * 0.7)
-        love.graphics.rectangle("fill", 
-            boxWidth - 40, 
-            windowHeight - self.padding - 10, 
-            30 * progress, 
-            5)
-    end
-    
-    self:triggerPluginEvent("onAfterDraw")
-end
-
-function LoveDialogue:drawFormattedText(text, startX, startY, baseColor, effects, textLimit)
-    local x = startX
-    local y = startY
-    textLimit = textLimit or math.huge
-    
-    for pos, char in utf8.codes(text) do
-        local char = utf8.char(char)
-        local color = {baseColor[1], baseColor[2], baseColor[3], baseColor[4]}
-        local offset = {x = 0, y = 0, scale = 1}
-    
-        if effects then
-            for _, effect in ipairs(effects) do
-                if pos >= effect.startIndex and pos <= effect.endIndex then
-                    local effectFunc = TextEffects[effect.type]
-                    if effectFunc then
-                        local effectColor, effectOffset = effectFunc(effect, char, pos, love.timer.getTime())
-                        if effectColor then color = effectColor end
-                        offset.x = offset.x + (effectOffset.x or 0)
-                        offset.y = offset.y + (effectOffset.y or 0)
-                        offset.scale = offset.scale * (effectOffset.scale or 1)
-                    end
-                end
-            end
-        end
-
-        local charTypeSpacing = isCJK(char) and self.letterSpacingCJK or self.letterSpacingLatin
-        
-        -- Handle text wrapping if a limit is specified
-        if textLimit and x + self.font:getWidth(char) * offset.scale + charTypeSpacing > startX + textLimit then
-            x = startX
-            y = y + self.lineSpacing
-        end
-
-        -- Draw the character with effects applied
-        love.graphics.setColor(unpack(color))
-        love.graphics.print(char, x + offset.x, y + offset.y, 0, offset.scale, offset.scale)
-        x = x + self.font:getWidth(char) * offset.scale + charTypeSpacing
-    end
-end
-
-function LoveDialogue:advance()
-    if self.state ~= "active" then
-        if self.state == "fading_in" then
-            self.state = "active"
-            self.boxOpacity = 1
-        end
-        return
-    end
-
-    self:triggerPluginEvent("onBeforeAdvance")
-
-    if self.choiceMode then
-        if not self.lines[self.currentLine] then
-            print("Warning: Current line is nil")
-            return
-        end
-        
-        if not self.lines[self.currentLine].choices then
-            print("Warning: No choices available for current line")
-            return
-        end
-
-        local selectedChoice = self.lines[self.currentLine].choices[self.selectedChoice]
-        if not selectedChoice then
-            print("Warning: Selected choice is nil")
-            return
-        end
-
-        self:triggerPluginEvent("onChoiceSelected", self.selectedChoice, selectedChoice)
-        if selectedChoice.target and self.scenes and self.scenes[selectedChoice.target] then
-            self.currentLine = self.scenes[selectedChoice.target]
+    elseif line.type == "block_if" then
+        local result = Logic.evaluate(line.condition, self.state.variables)
+        if result then
+            -- True: Just continue to next line
+            self.state.currentLineIndex = self.state.currentLineIndex + 1
+            return self:processCurrentLine()
         else
-            self.currentLine = self.currentLine + 1
+            -- False: Skip to ELSE or ENDIF
+            self:skipToBlockEnd()
+            return self:processCurrentLine()
         end
-        self.selectedChoice = 1
-        self:setCurrentDialogue()
-    else
-        if not self.lines[self.currentLine] then
-            print("Warning: Current line is nil")
-            return
-        end
-
-        if self.displayedText ~= self.lines[self.currentLine].text then
-            self.displayedText = self.lines[self.currentLine].text
-            self:triggerPluginEvent("onTextSkipped")
-        else
-            if self.lines[self.currentLine].isEnd then
-                self:endDialogue()
-            else
-                self.currentLine = self.currentLine + 1
-                self:setCurrentDialogue()
-            end
-        end
+        
+    elseif line.type == "block_else" then
+        -- If we hit an ELSE naturally, it means the IF block before it executed.
+        -- So we must skip this ELSE block now.
+        self:skipToBlockEnd()
+        return self:processCurrentLine()
+        
+    elseif line.type == "block_endif" then
+        -- Just a marker, pass through
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine()
+        
+    -- NEW: Handle Signals
+    elseif line.type == "signal" then
+        self:triggerPluginEvent("onSignal", line.name, line.args)
+        -- Also allow main app to hook via simple callback if assigned
+        if self.onSignal then self.onSignal(line.name, line.args) end
+        
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine() -- Continue immediately
     end
-    self.autoAdvanceTimer = 0
-    self:triggerPluginEvent("onAfterAdvance")
+
+    -- If we get here, it's a "dialogue" line
+    self:setDialogueState(line)
 end
 
-function LoveDialogue:setCurrentDialogue()
-    local currentDialogue = self.lines[self.currentLine]
-    if not currentDialogue then
-        print("Warning: No dialogue found for line", self.currentLine)
-        self:endDialogue()
-        return
-    end
-
-    self:triggerPluginEvent("onBeforeDialogueSet", currentDialogue)
-
-    self.currentCharacter = currentDialogue.character or ""
-    self.currentExpression = currentDialogue.expression or "Default"
-    self.displayedText = ""
-    self.typewriterTimer = 0
-    self.effects = {}
-    self.waitTimer = 0
-    self.choiceMode = currentDialogue.choices and #currentDialogue.choices > 0
-    
-    if self.choiceMode then
-        self.displayedText = currentDialogue.text or ""
-        self.selectedChoice = 1
+function LoveDialogue:skipToBlockEnd()
+    local depth = 1
+    while depth > 0 do
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        local line = self.state.lines[self.state.currentLineIndex]
+        if not line then break end
         
-        if currentDialogue.choices then
-            for _, choice in ipairs(currentDialogue.choices) do
-                if choice and choice.text then
-                    local text, effects = Parser.parseTextWithTags(choice.text)
-                    choice.parsedText = text
-                    choice.effects = effects
-                end
+        if line.type == "block_if" then
+            depth = depth + 1
+        elseif line.type == "block_endif" then
+            depth = depth - 1
+        elseif line.type == "block_else" and depth == 1 then
+            -- Found the matching else for the current if
+            -- We stop here (pointing AT the else), so next process call steps inside the else block
+            -- wait, if we are skipping to block end because IF failed, we WANT to enter ELSE.
+            -- if we are skipping because IF succeeded, we want to skip ELSE.
+            
+            -- Wait, this function is generic "skip". 
+            -- Case 1: IF failed -> Find ELSE or ENDIF. If find ELSE, stop there (next step enters it). If ENDIF, stop there.
+            -- Case 2: IF succeeded -> Hit ELSE -> Find ENDIF.
+            
+            -- Let's differentiate.
+            -- Actually, simpler logic:
+            -- If we are scanning for an ELSE/ENDIF (because IF false): stop at depth 1 ELSE or ENDIF.
+            -- If we are scanning for ENDIF (because we finished IF true block): ignore ELSE, stop at depth 1 ENDIF.
+            
+            -- This function is too simple. Let's rely on the caller or make it smarter.
+            -- But for now, let's assume we simply scan for the "next logical block".
+            
+            -- Refined logic for scanning:
+            -- When skipping a failed IF: We want to land on the line AFTER 'else' or AFTER 'endif'.
+            -- But processCurrentLine increments index.
+            
+            -- Let's just consume the ELSE tag if we find it.
+            self.state.currentLineIndex = self.state.currentLineIndex + 1 -- Skip the ELSE tag itself
+            return
+        end
+    end
+end
+
+-- Better logic skipping implementation
+function LoveDialogue:skipToBlockEnd()
+    local startLine = self.state.lines[self.state.currentLineIndex]
+    -- We are at [if] (failed) OR [else] (finished if block)
+    -- We need to find the matching [else] or [endif]
+    
+    local depth = 1
+    while true do
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        local line = self.state.lines[self.state.currentLineIndex]
+        if not line then break end
+        
+        if line.type == "block_if" then
+            depth = depth + 1
+        elseif line.type == "block_endif" then
+            depth = depth - 1
+            if depth == 0 then
+                -- Found the end. We are now AT [endif]. 
+                -- We should execute the line AFTER this.
+                self.state.currentLineIndex = self.state.currentLineIndex + 1
+                return
+            end
+        elseif line.type == "block_else" then
+            if depth == 1 then
+                -- Found an else at our level. 
+                -- If we were skipping the IF block (startLine was IF), we Enter this else.
+                -- If we were skipping the ELSE block (startLine was ELSE), we continue skipping.
+                
+                -- Wait, we can't know "why" we are skipping just from state.
+                -- Let's implement specific skippers.
             end
         end
     end
+end
 
-    if currentDialogue.effects then
-        for _, effect in ipairs(currentDialogue.effects) do
-            if effect then
-                table.insert(self.effects, {
-                    type = effect.type,
-                    content = effect.content,
-                    startIndex = effect.startIndex,
-                    endIndex = effect.endIndex,
-                    timer = 0
+-- Helper to find the matching ELSE or ENDIF for the current IF (failed condition)
+function LoveDialogue:skipToBlockEnd()
+    -- We are currently AT the line that triggered the skip (e.g. [if] or [else])
+    local depth = 0
+    local targetElse = (self.state.lines[self.state.currentLineIndex].type == "block_if")
+    
+    while true do
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        local line = self.state.lines[self.state.currentLineIndex]
+        if not line then break end
+        
+        if line.type == "block_if" then
+            depth = depth + 1
+        elseif line.type == "block_endif" then
+            if depth == 0 then
+                -- Found the end of our block
+                self.state.currentLineIndex = self.state.currentLineIndex + 1
+                return
+            end
+            depth = depth - 1
+        elseif line.type == "block_else" then
+            if depth == 0 and targetElse then
+                -- We were looking for an else (IF failed), and we found it.
+                -- Consume the else line and start executing body
+                self.state.currentLineIndex = self.state.currentLineIndex + 1
+                return
+            end
+        end
+    end
+end
+
+function LoveDialogue:setDialogueState(line)
+    self:triggerPluginEvent("onBeforeDialogueSet", line)
+
+    self.state.currentCharacter = line.character or ""
+    self.state.currentExpression = line.expression or "Default"
+    
+    -- Interpolate text
+    local finalText = Logic.interpolate(line.rawText, self.state.variables)
+    
+    -- Re-parse effects if interpolation changed the string length/content significantly?
+    -- Actually, if we interpolate, existing effect indices might break if the variable length != placeholder length.
+    -- Simple fix: Re-parse tags completely after interpolation.
+    -- But rawText in parser has tags stripped. We need raw-raw text.
+    -- Parser stores `rawText` as "Text with {tags}".
+    -- Logic.interpolate will replace `${var}` inside that.
+    -- Then we need to parse tags again.
+    local pText, eff = Parser.parseTextWithTags(finalText)
+    
+    self.state.displayedText = ""
+    self.state.fullText = pText -- Stored for typewriter
+    self.state.effects = {}
+    
+    -- Re-build effects list from new parse
+    if eff then
+        for _, e in ipairs(eff) do
+            table.insert(self.state.effects, {
+                type = e.type, content = e.content,
+                startIndex = e.startIndex, endIndex = e.endIndex,
+                timer = 0
+            })
+        end
+    end
+
+    self.state.typewriterTimer = 0
+    self.state.waitTimer = 0
+    
+    -- Choice Logic
+    self.state.activeChoices = {}
+    if line.choices and #line.choices > 0 then
+        for _, c in ipairs(line.choices) do
+            -- Check condition
+            local allowed = true
+            if c.condition then
+                allowed = Logic.evaluate(c.condition, self.state.variables)
+            end
+            
+            if allowed then
+                -- Interpolate choice text too
+                local choiceTxt = Logic.interpolate(c.text, self.state.variables)
+                local cpText, ceff = Parser.parseTextWithTags(choiceTxt)
+                
+                -- Create a runtime choice object
+                table.insert(self.state.activeChoices, {
+                    text = choiceTxt,
+                    parsedText = cpText,
+                    effects = ceff,
+                    target = c.target
                 })
             end
         end
     end
-    self.autoAdvanceTimer = 0
-    self:triggerPluginEvent("onAfterDialogueSet", currentDialogue)
+    
+    self.state.choiceMode = (#self.state.activeChoices > 0)
+    if self.state.choiceMode then
+        self.state.displayedText = self.state.fullText
+        self.state.selectedChoice = 1
+    end
+
+    self.state.autoAdvanceTimer = 0
+    self:triggerPluginEvent("onAfterDialogueSet", line)
 end
 
-function LoveDialogue:keypressed(key)
-    if not self.isActive then return end
-    local keyHandled = false
-    for _, plugin in ipairs(self.plugins) do
-        if plugin.handleKeyPress then
-            keyHandled = plugin.handleKeyPress(self, self.pluginData[plugin.name], key)
-            if keyHandled then break end
-        end
-    end
+function LoveDialogue:update(dt)
+    if not self.state.isActive then return end
     
-    if keyHandled then return end
-    if key == self.skipKey then
-        if self:skipCurrentText() then
-            return
-        end
-    elseif key == "t" then
-        local newSpeed = self:cycleTextSpeed()
-        print("Text speed changed to:", newSpeed)
-        return
-    elseif key == "a" then
-        local autoStatus = self:toggleAutoAdvance()
-        print("Auto-advance " .. (autoStatus and "enabled" or "disabled"))
-        return
+    for _, p in ipairs(self.plugins) do
+        if p.modifyDeltaTime then dt = p.modifyDeltaTime(self, self.config.pluginData[p.name], dt) end
     end
-    if self.choiceMode then
-        if key == "up" then
-            self.selectedChoice = math.max(1, self.selectedChoice - 1)
-            self:triggerPluginEvent("onChoiceNavigation", "up", self.selectedChoice)
-        elseif key == "down" then
-            self.selectedChoice = math.min(#self.lines[self.currentLine].choices, self.selectedChoice + 1)
-            self:triggerPluginEvent("onChoiceNavigation", "down", self.selectedChoice)
-        elseif key == "return" or key == "space" then
+
+    self:triggerPluginEvent("onBeforeUpdate", dt)
+
+    if self.state.status == "fading_in" then
+        self.state.animationTimer = self.state.animationTimer + dt
+        self.state.boxOpacity = math.min(self.state.animationTimer / self.config.fadeInDuration, 1)
+        if self.state.animationTimer >= self.config.fadeInDuration then
+            self.state.status = "active"
+            self:triggerPluginEvent("onFadeInComplete")
+        end
+    elseif self.state.status == "fading_out" then
+        self.state.animationTimer = self.state.animationTimer + dt
+        self.state.boxOpacity = 1 - math.min(self.state.animationTimer / self.config.fadeOutDuration, 1)
+        if self.state.animationTimer >= self.config.fadeOutDuration then
+            self.state.isActive = false
+            self.state.status = "inactive"
+            self:triggerPluginEvent("onFadeOutComplete")
+            self:destroy()
+        end
+    elseif self.state.status == "active" and not self.state.choiceMode then
+        self:handleTypewriter(dt)
+    end
+
+    if self.config.autoLayout then self:adjustLayout() end
+    self:triggerPluginEvent("onAfterUpdate", dt)
+end
+
+function LoveDialogue:handleTypewriter(dt)
+    local fullText = self.state.fullText
+    if self.state.displayedText ~= fullText then
+        if self.state.waitTimer > 0 then
+            self.state.waitTimer = self.state.waitTimer - dt
+        else
+            self.state.typewriterTimer = self.state.typewriterTimer + dt
+            if self.state.typewriterTimer >= self.state.typingSpeed then
+                self.state.typewriterTimer = 0
+                local p = utf8.offset(fullText, utf8.len(self.state.displayedText) + 2)
+                self.state.displayedText = fullText:sub(1, (p or #fullText + 1) - 1)
+                self:triggerPluginEvent("onCharacterTyped", self.state.displayedText)
+            end
+        end
+    elseif self.state.autoAdvance then
+        self.state.autoAdvanceTimer = self.state.autoAdvanceTimer + dt
+        if self.state.autoAdvanceTimer >= self.config.autoAdvanceDelay then
             self:advance()
         end
     else
-        if key == "return" or key == "space" then
-            self:advance()
+        self:triggerPluginEvent("onUtteranceEnd", self.state.displayedText)
+    end
+end
+
+function LoveDialogue:draw()
+    if not self.state.isActive then return end
+    self:triggerPluginEvent("onBeforeDraw")
+
+    local w, h = love.graphics.getDimensions()
+    local boxW = w - 2 * self.config.padding
+    local boxH = self.config.boxHeight
+    local opacity = self.state.boxOpacity
+    
+    if self.config.characterType == 1 then self:drawVerticalPortrait(w, h, opacity) end
+
+    if not self.config.useNinePatch then
+        love.graphics.setColor(self.config.boxColor[1], self.config.boxColor[2], self.config.boxColor[3], self.config.boxColor[4] * opacity)
+        love.graphics.rectangle("fill", self.config.padding, h - boxH - self.config.padding, boxW, boxH)
+    elseif self.resources.patch then
+        love.graphics.setColor(1, 1, 1, opacity)
+        ninePatch.draw(self.resources.patch, self.config.padding, h - boxH - self.config.padding, boxW, boxH)
+    end
+
+    local textX = self.config.padding * 2
+    local textY = h - boxH
+    local textLimit = boxW - self.config.padding * 2
+
+    if self.config.characterType == 0 then
+        local pX, pW = self:drawHorizontalPortrait(h, boxH, opacity)
+        if pW > 0 then
+            textX = pX + pW + self.config.padding
+            textLimit = textLimit - pW - self.config.padding
+        end
+    end
+
+    self:drawName(textX, textY, opacity)
+    if self.state.currentCharacter ~= "" then
+        textY = textY + self.resources.nameFont:getHeight() + 5
+    end
+
+    love.graphics.setFont(self.resources.font)
+    if self.state.choiceMode then
+        self:drawChoices(textX, textY, opacity)
+    else
+        self:drawFormattedText(self.state.displayedText, textX, textY, self.config.textColor, self.state.effects, textLimit, opacity)
+    end
+
+    if self.state.autoAdvance and self.state.status == "active" and self.state.displayedText == self.state.fullText then
+        love.graphics.setColor(1, 1, 1, opacity * 0.7)
+        love.graphics.rectangle("fill", boxW - 40, h - self.config.padding - 10, 30 * (self.state.autoAdvanceTimer / self.config.autoAdvanceDelay), 5)
+    end
+
+    self:triggerPluginEvent("onAfterDraw")
+end
+
+function LoveDialogue:drawVerticalPortrait(w, h, opacity)
+    if not self.config.portraitEnabled then return end
+    local char = self.state.characters[self.state.currentCharacter]
+    if char and char:hasPortrait() then
+        love.graphics.setColor(1, 1, 1, opacity)
+        local pX = (w - 100) / 2 -- Center approximation, real implementation depends on portrait size
+        char:draw(self.state.currentExpression, pX, h - 300, 1, 1) -- Adjust Y as needed
+    end
+end
+
+function LoveDialogue:drawHorizontalPortrait(h, boxH, opacity)
+    if not self.config.portraitEnabled then return 0, 0 end
+    local char = self.state.characters[self.state.currentCharacter]
+    if char and char:hasPortrait() then
+        local pSize = self.config.portraitSize
+        local x = self.config.padding * 2
+        local y = h - boxH 
+        
+        love.graphics.setColor(0, 0, 0, opacity * 0.5)
+        love.graphics.rectangle("fill", x, y, pSize, pSize)
+        love.graphics.setColor(1, 1, 1, opacity)
+        char:draw(self.state.currentExpression, x, y, pSize, pSize)
+        return x, pSize
+    end
+    return 0, 0
+end
+
+function LoveDialogue:drawName(x, y, opacity)
+    if self.state.currentCharacter == "" then return end
+    local char = self.state.characters[self.state.currentCharacter]
+    local c = char and char.nameColor or self.config.nameColor
+    love.graphics.setFont(self.resources.nameFont)
+    love.graphics.setColor(c[1] or c.r, c[2] or c.g, c[3] or c.b, opacity)
+    love.graphics.print(self.state.currentCharacter, x, y)
+end
+
+function LoveDialogue:drawChoices(x, y, opacity)
+    -- Iterate over ACTIVE choices, not all choices
+    for i, choice in ipairs(self.state.activeChoices) do
+        local isSel = (i == self.state.selectedChoice)
+        local prefix = isSel and "> " or "  "
+        local cy = y + (i - 1) * self.config.lineSpacing
+        local col = isSel and {1, 1, 0, opacity} or {1, 1, 1, opacity}
+        
+        love.graphics.setColor(unpack(col))
+        love.graphics.print(prefix, x, cy)
+        
+        if choice.parsedText then
+            self:drawFormattedText(choice.parsedText, x + self.resources.font:getWidth(prefix), cy, col, choice.effects, math.huge, opacity)
         end
     end
 end
+
+function LoveDialogue:drawFormattedText(text, x, y, color, effects, limit, opacity)
+    local startX = x
+    local curX, curY = x, y
+    local col = {color[1], color[2], color[3], color[4] * opacity}
     
-function LoveDialogue:destroy()
-    self:triggerPluginEvent("onBeforeDestroy")
-    ResourceManager:releaseInstance(self.instanceId)
-    self.ninePatchImage = nil
-    self.patch = nil
-    self.font = nil
-    self.nameFont = nil
-    
-    for _, plugin in ipairs(self.plugins) do
-        if plugin.cleanup then
-            plugin.cleanup(self, self.pluginData[plugin.name])
+    for pos, char in utf8.codes(text) do
+        local c = utf8.char(char)
+        local dx, dy, s = 0, 0, 1
+        local ec = col
+        
+        if effects then
+            local t = love.timer.getTime()
+            for _, e in ipairs(effects) do
+                if pos >= e.startIndex and pos <= e.endIndex then
+                    local fn = TextEffects[e.type]
+                    if fn then
+                        local nc, off = fn(e, c, pos, t)
+                        if nc then ec = {nc[1], nc[2], nc[3], (nc[4] or 1) * opacity} end
+                        if off then dx, dy, s = dx + (off.x or 0), dy + (off.y or 0), s * (off.scale or 1) end
+                    end
+                end
+            end
         end
-        self.pluginData[plugin.name] = nil
+
+        local spacing = isCJK(c) and self.config.letterSpacingCJK or self.config.letterSpacingLatin
+        local w = self.resources.font:getWidth(c) * s
+        
+        if curX + w + spacing > startX + limit then
+            curX = startX
+            curY = curY + self.config.lineSpacing
+        end
+
+        love.graphics.setColor(unpack(ec))
+        love.graphics.print(c, curX + dx, curY + dy, 0, s, s)
+        curX = curX + w + spacing
     end
+end
+
+function LoveDialogue:advance()
+    if self.state.status ~= "active" then
+        if self.state.status == "fading_in" then
+             self.state.status = "active"
+             self.state.boxOpacity = 1
+        end
+        return
+    end
+
+    local line = self.state.lines[self.state.currentLineIndex]
     
+    if self.state.choiceMode then
+        local choice = self.state.activeChoices[self.state.selectedChoice]
+        self:triggerPluginEvent("onChoiceSelected", self.state.selectedChoice, choice)
+        
+        if choice.target and self.state.scenes[choice.target] then
+            self.state.currentLineIndex = self.state.scenes[choice.target]
+        else
+            self.state.currentLineIndex = self.state.currentLineIndex + 1
+        end
+        self:processCurrentLine()
+        
+    elseif self.state.displayedText ~= self.state.fullText then
+        self.state.displayedText = self.state.fullText
+        self:triggerPluginEvent("onTextSkipped")
+    elseif line.isEnd then
+        self:endDialogue()
+    else
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        self:processCurrentLine()
+    end
+end
+
+function LoveDialogue:keypressed(key)
+    if not self.state.isActive then return end
+    
+    for _, p in ipairs(self.plugins) do
+        if p.handleKeyPress and p.handleKeyPress(self, self.config.pluginData[p.name], key) then return end
+    end
+
+    local c = self.config.controls
+    local function is(k, list) for _, v in ipairs(list) do if v == k then return true end end return false end
+
+    if is(key, c.toggleSpeed) then
+        local keys = {"slow", "normal", "fast"}
+        local n = (self.state.currentSpeedSetting == "slow" and 2) or (self.state.currentSpeedSetting == "normal" and 3) or 1
+        self.state.currentSpeedSetting = keys[n]
+        self.state.typingSpeed = self.config.speeds[self.state.currentSpeedSetting]
+    elseif is(key, c.toggleAuto) then
+        self.state.autoAdvance = not self.state.autoAdvance
+        self:triggerPluginEvent("onAutoAdvanceToggled", self.state.autoAdvance)
+    elseif key == self.config.skipKey then
+        if self.state.displayedText ~= self.state.fullText and not self.state.choiceMode then
+            self.state.displayedText = self.state.fullText
+        end
+    elseif self.state.choiceMode then
+        if is(key, c.up) then
+            self.state.selectedChoice = math.max(1, self.state.selectedChoice - 1)
+        elseif is(key, c.down) then
+            self.state.selectedChoice = math.min(#self.state.activeChoices, self.state.selectedChoice + 1)
+        elseif is(key, c.next) then
+            self:advance()
+        end
+    elseif is(key, c.next) then
+        self:advance()
+    end
+end
+
+function LoveDialogue:destroy()
+    ResourceManager:releaseInstance(self.instanceId)
+    for _, p in ipairs(self.plugins) do
+        if p.cleanup then p.cleanup(self, self.config.pluginData[p.name]) end
+    end
     self.plugins = {}
 end
 
 function LoveDialogue:endDialogue()
     self:triggerPluginEvent("onDialogueEnd")
-    
-    self.state = self.enableFadeOut and "fading_out" or "inactive"
-    if not self.enableFadeOut then
-        self.isActive = false
-        self:destroy()  -- Clean up resources immediately if no fade-out
+    if self.config.enableFadeOut then
+        self.state.status = "fading_out"
+    else
+        self.state.isActive = false
+        self:destroy()
     end
 end
 
 function LoveDialogue:adjustLayout()
-    if self.state == "inactive" or self.state == "fading_out" then
-        return
-    end
-
-    local windowWidth, windowHeight = love.graphics.getDimensions()
-    self.boxHeight = math.floor(windowHeight * 0.25)
-    self.padding = math.floor(windowWidth * 0.02)
+    local w, h = love.graphics.getDimensions()
+    self.config.boxHeight = math.floor(h * 0.25)
+    self.config.padding = math.floor(w * 0.02)
+    -- Reload fonts with new sizes. Do NOT release the entire instance here!
+    -- Fonts are cheap to load/unload, but releasing textures breaks Characters.
+    local fontSize = math.floor(h * 0.025)
+    self.resources.font = ResourceManager:getFont(self.instanceId, fontSize, nil, "main_font")
+    self.resources.nameFont = ResourceManager:getFont(self.instanceId, math.floor(h * 0.03), nil, "name_font")
     
-    self.font = ResourceManager:newFont(
-        self.instanceId,
-        math.floor(windowHeight * 0.025),
-        nil,
-        "mainFont"
-    )
+    -- Dynamically update line spacing to prevent overlap
+    self.config.lineSpacing = math.floor(self.resources.font:getHeight() * 1.5)
     
-    self.nameFont = ResourceManager:newFont(
-        self.instanceId,
-        math.floor(windowHeight * 0.03),
-        nil,
-        "nameFont"
-    )
-
-    if self.boxtype then
-        self:createNinePatchQuads()
-    end
-    
-    self:triggerPluginEvent("onLayoutAdjusted", windowWidth, windowHeight)
+    if self.config.useNinePatch then self:loadNinePatch() end
 end
 
-function LoveDialogue:loadTheme(themePath)
-    local theme = ThemeParser.parseTheme(themePath)
-    if theme then
-        ThemeParser.applyTheme(self, theme)
-        self:triggerPluginEvent("onThemeLoaded", theme)
-        return true
+function LoveDialogue.play(file, conf)
+    local d = LoveDialogue.new(conf)
+    if conf and conf.theme then
+        local t = ThemeParser.parseTheme(conf.theme)
+        if t then ThemeParser.applyTheme(d, t) end
     end
-    return false
-end
-
-function LoveDialogue.play(filePath, config)
-    local dialogue = LoveDialogue:new(config or {})
-    if config and config.theme then
-        dialogue:loadTheme(config.theme)
-    end
-    dialogue:loadFromFile(filePath)
-    dialogue:start()
-    return dialogue
+    d:loadFromFile(file)
+    d:start()
+    return d
 end
 
 return LoveDialogue

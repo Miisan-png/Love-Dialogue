@@ -2,36 +2,61 @@
 @portrait Eiisan demo/Assets/girl2.png
 @portrait Wiisan demo/Assets/girl3.png
 
+// Initialize variables
+$ coins = 0
+$ has_met_secret = false
+$ name = "Traveller"
+
 [start]
-Miisan: Hello there! I'm Miisan. Welcome to the LoveDialogue engine demo!
-Eiisan: And I'm Eiisan! We're here to demonstrate how this dialogue system works.
-Wiisan: Don't forget about me! I'm Wiisan. Together we'll show you the features of this engine.
+Miisan: Welcome, ${name}! This is the new Logic Demo.
+Eiisan: We now have variables. You currently have ${coins} coins.
+Wiisan: I'll give you some! 
+$ coins = coins + 10
+Wiisan: Now you have ${coins} coins! {wave:1}Rich!{/wave}
 
-Miisan: Let's start with some basic dialogue. You can advance the text by pressing SPACE or ENTER.
-Eiisan: We can use different {color:FF9900}text colors{/color} and {wave:1}special effects{/wave} too!
-Wiisan: And now, let's give you a choice:
+Miisan: Let's test a signal. 
+Eiisan: I'll change the background color using a signal!
+// Trigger a signal "ChangeBG" with args "0.5 0 0" (Red)
+[signal: ChangeBG 0.5 0 0]
+Wiisan: Whoa! It turned red!
+Miisan: Let's turn it back.
+[signal: ChangeBG 0.1 0.1 0.2]
+Eiisan: Much better.
 
--> Learn about text effects [target:effects]
--> Learn about dialogue choices [target:choices]
--> End the demo [target:end]
+Miisan: Let's test a conditional block.
+[if: coins >= 10]
+    Eiisan: Wow, you really do have more than 10 coins.
+    Wiisan: The logic is working perfectly!
+[else]
+    Eiisan: Uh oh, something is wrong. You should have coins.
+[endif]
 
-[effects]
-Miisan: Text effects are fun! You can make text {wave:1}wave like this{/wave}.
-Eiisan: Or {shake:1}shake it up a bit{/shake} for emphasis.
-Wiisan: You can use {color:FF00FF}custom colors{/color} too. Neat, right?
-Miisan: What would you like to see next?
--> Go back to the start [target:start]
--> End the demo [target:end]
+Miisan: Now, let's try a conditional choice.
+Eiisan: You can only buy the secret item if you have 50 coins.
+Wiisan: (You only have ${coins}...)
 
-[choices]
-Eiisan: Choices allow branching dialogue paths.
-Wiisan: You navigate with the UP and DOWN arrow keys.
-Miisan: Then press ENTER or SPACE to select your choice.
-Eiisan: What would you like to do now?
--> Go back to the start [target:start]
--> End the demo [target:end]
+-> Buy Secret Item (50 coins) [target:buy_secret] [if: coins >= 50]
+-> Ask for more coins [target:get_more]
+-> End Demo [target:end]
+
+[get_more]
+$ coins = coins + 50
+Wiisan: Fine, here is 50 more coins! You have ${coins} now.
+Miisan: Try the choice again.
+-> Buy Secret Item (50 coins) [target:buy_secret] [if: coins >= 50]
+-> End Demo [target:end]
+
+[buy_secret]
+$ coins = coins - 50
+$ has_met_secret = true
+Eiisan: You bought it! You have ${coins} coins left.
+Miisan: Was it worth it?
+-> Yes [target:end]
+-> No [target:end]
 
 [end]
-Miisan: Thanks for trying out the LoveDialogue engine!
-Eiisan: We hope you enjoyed this little demo.
-Wiisan: See you next time! (end)
+Miisan: Thanks for testing!
+[if: has_met_secret]
+    Wiisan: Pssst... thanks for buying my secret item.
+[endif]
+Eiisan: Bye! (end)

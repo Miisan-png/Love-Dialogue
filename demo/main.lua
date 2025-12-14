@@ -3,94 +3,85 @@ local ResourceManager = require("LoveDialogue.ResourceManager")
 local PluginManager = require("LoveDialogue.PluginManager")  
 local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
 local myDialogue
-local demoType = "standard" 
+
+-- Use a variable for background color to demonstrate signal changes
+local bgColor = {0.1, 0.1, 0.2, 1}
 
 function love.load()
+    love.window.setTitle("LoveDialogue Engine Demo")
+    love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
+    
     PluginManager:register(DebugPlugin)
+    
     local config = {
-        boxHeight = 150,
+        boxHeight = 220,
         portraitEnabled = true,
-        boxColor = {0.1, 0.1, 0.2, 0.9},
+        boxColor = {0.1, 0.1, 0.2, 0.95},
         textColor = {1, 1, 1, 1},
         nameColor = {1, 0.8, 0.2, 1},
-        typingSpeed = 0.05,
-        padding = 20,
+        typingSpeed = 0.04,
+        padding = 30,
         autoLayoutEnabled = true,
         skipKey = "f",
-        textSpeeds = {
-            slow = 0.08,
-            normal = 0.05,
-            fast = 0.02
-        },
+        character_type = 0,
+        portraitSize = 260, 
+        textSpeeds = { slow = 0.08, normal = 0.04, fast = 0.02 },
         initialSpeedSetting = "normal",
         autoAdvance = false,
-        autoAdvanceDelay = 3.0,
+        autoAdvanceDelay = 2.0,
         initialVariables = {
-            playerName = "Player",
-            health = 100,
-            hasKey = false,
-            meetingCount = 0
+            -- Variables can be pre-seeded here if needed
+            -- coins = 100
         },
         plugins = {"Debug"},
+        pluginData = { Debug = { enabled = false } }
     }
-    local dialogueFile = demoType == "variable" and "demo/script_demo.ld" or "demo/demo.ld"
-    myDialogue = LoveDialogue.play(dialogueFile, config)
     
-    print("Dialogue loaded successfully!")
-    print("Press F1 to toggle debug display")
+    myDialogue = LoveDialogue.play("demo/demo.ld", config)
+    
+    -- Register a simple callback for signals
+    myDialogue.onSignal = function(name, args)
+        print("Signal Received:", name, args)
+        if name == "ChangeBG" then
+            local r, g, b = args:match("(%S+)%s+(%S+)%s+(%S+)")
+            if r and g and b then
+                bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
+            end
+        end
+    end
 end
 
 function love.update(dt)
-    if myDialogue then
-        myDialogue:update(dt)
-    end
+    if myDialogue then myDialogue:update(dt) end
 end
 
 function love.draw()
-    love.graphics.setColor(0.2, 0.2, 0.25, 1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    
-    love.graphics.setColor(1, 1, 1, 1)
-    
-    if myDialogue then
-        myDialogue:draw()
+    local w, h = love.graphics.getDimensions()
+    -- Background with dynamic color
+    for i = 0, h do
+        local r = bgColor[1] + (i/h)*0.1
+        local g = bgColor[2] + (i/h)*0.1
+        local b = bgColor[3] + (i/h)*0.1
+        love.graphics.setColor(r, g, b, 1)
+        love.graphics.line(0, i, w, i)
     end
     
-    love.graphics.setColor(0.8, 0.8, 0.8, 0.8)
-    love.graphics.print("Press SPACE/ENTER to advance dialogue", 10, 10)
-    love.graphics.print("Press UP/DOWN to navigate choices", 10, 30)
-    love.graphics.print("Press F to skip current text", 10, 50)
-    love.graphics.print("Press T to cycle text speed", 10, 70)
-    love.graphics.print("Press A to toggle auto-advance", 10, 90)
-    love.graphics.print("Press V to switch to " .. (demoType == "standard" and "variable" or "standard") .. " demo", 10, 110)
-    love.graphics.print("Press ESC to quit", 10, 130)
-    love.graphics.setColor(1, 1, 0, 0.8)
-    love.graphics.print("Current demo: " .. (demoType == "variable" and "Variable & Scripting" or "Standard"), 10, 160)
+    love.graphics.setColor(1, 1, 1, 1)
+    if myDialogue then myDialogue:draw() end
+    
+    -- Clean UI
+    love.graphics.setFont(love.graphics.newFont(14))
+    love.graphics.setColor(1, 1, 1, 0.6)
+    love.graphics.print("Controls: Space/Enter (Next) | F (Skip) | F1 (Debug)", 20, h - 30)
 end
 
 function love.keypressed(key)
-    if key == "escape" then
-        love.event.quit()
-    elseif key == "v" then
-        if myDialogue then
-            myDialogue:endDialogue()
-        end
-        
-        demoType = demoType == "standard" and "variable" or "standard"
-        love.load() 
-    end
-    
-    if myDialogue then
-        myDialogue:keypressed(key)
-    end
+    if key == "escape" then love.event.quit() end
+    if myDialogue then myDialogue:keypressed(key) end
 end
 
 function love.quit()
-    if myDialogue then
-        myDialogue:endDialogue()
-    end
-    ResourceManager:releaseAll()
-    print("Shutting down demo")
-    return false
+    if myDialogue then myDialogue:endDialogue() end
+    ResourceManager:cleanup()
 end
