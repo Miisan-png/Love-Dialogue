@@ -77,29 +77,42 @@ function lib.loadSameEdge(image, edgeW, edgeH)
 	return quadPatch
 end
 
-function lib.draw(patch, x, y, width, height)
+function lib.draw(patch, x, y, width, height, scale)
+    scale = scale or 1
 	local imageW, imageH = patch.width, patch.height
 
-	local scaleX = (width - 2 * patch.right) / (imageW - 2 * patch.right)
-	local scaleY = (height - 2 * patch.bottom) / (imageH - 2 * patch.bottom)
+    -- Calculate the scaled edge dimensions
+    local sLeft = patch.left * scale
+    local sRight = patch.right * scale
+    local sTop = patch.top * scale
+    local sBottom = patch.bottom * scale
 
-	local x2 = x + patch.left
-	local x3 = x + width - patch.right
+    -- Calculate the scale for the MIDDLE sections
+    -- Available space for middle = Total Width - Scaled Edges
+    -- Source middle width = Image Width - Source Edges
+	local middleScaleX = (width - sLeft - sRight) / (imageW - patch.left - patch.right)
+	local middleScaleY = (height - sTop - sBottom) / (imageH - patch.top - patch.bottom)
 
-	local y2 = y + patch.top
-	local y3 = y + height - patch.top
+	local x2 = x + sLeft
+	local x3 = x + width - sRight
 
-	love.graphics.draw(patch.image, patch.quads[1], x, y)
-	love.graphics.draw(patch.image, patch.quads[2], x2, y, 0, scaleX, 1)
-	love.graphics.draw(patch.image, patch.quads[3], x3, y)
+	local y2 = y + sTop
+	local y3 = y + height - sBottom
 
-	love.graphics.draw(patch.image, patch.quads[4], x, y2, 0, 1, scaleY)
-	love.graphics.draw(patch.image, patch.quads[5], x2, y2, 0, scaleX, scaleY)
-	love.graphics.draw(patch.image, patch.quads[6], x3, y2, 0, 1, scaleY)
+    -- Top Row
+	love.graphics.draw(patch.image, patch.quads[1], x, y, 0, scale, scale)
+	love.graphics.draw(patch.image, patch.quads[2], x2, y, 0, middleScaleX, scale)
+	love.graphics.draw(patch.image, patch.quads[3], x3, y, 0, scale, scale)
 
-	love.graphics.draw(patch.image, patch.quads[7], x, y3)
-	love.graphics.draw(patch.image, patch.quads[8], x2, y3, 0, scaleX, 1)
-	love.graphics.draw(patch.image, patch.quads[9], x3, y3)
+    -- Middle Row
+	love.graphics.draw(patch.image, patch.quads[4], x, y2, 0, scale, middleScaleY)
+	love.graphics.draw(patch.image, patch.quads[5], x2, y2, 0, middleScaleX, middleScaleY)
+	love.graphics.draw(patch.image, patch.quads[6], x3, y2, 0, scale, middleScaleY)
+
+    -- Bottom Row
+	love.graphics.draw(patch.image, patch.quads[7], x, y3, 0, scale, scale)
+	love.graphics.draw(patch.image, patch.quads[8], x2, y3, 0, middleScaleX, scale)
+	love.graphics.draw(patch.image, patch.quads[9], x3, y3, 0, scale, scale)
 end
 
 return lib

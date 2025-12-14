@@ -8,6 +8,7 @@ local myDialogue
 local bgColor = {0.1, 0.1, 0.2, 1}
 
 function love.load()
+    love.graphics.setDefaultFilter("nearest", "nearest")
     love.window.setTitle("LoveDialogue Engine Demo")
     love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
@@ -18,8 +19,10 @@ function love.load()
         -- 9-Patch UI
         useNinePatch = true,
         ninePatchPath = "demo/assets/ui/9patch.png",
+        ninePatchScale = 3, -- Scale up the pixel art borders
         edgeWidth = 12,  -- Adjusted for standard 9-patch borders
         edgeHeight = 12,
+        boxHeight = 260,
         boxColor = {0.1, 0.1, 0.2, 0.95},
         textColor = {1, 1, 1, 1},
         nameColor = {1, 0.8, 0.2, 1},
@@ -29,6 +32,7 @@ function love.load()
         skipKey = "f",
         character_type = 0,
         portraitSize = 260, 
+        portraitFlipH = true, -- Flip portraits horizontally (e.g. facing right instead of left)
         textSpeeds = { slow = 0.08, normal = 0.04, fast = 0.02 },
         initialSpeedSetting = "normal",
         autoAdvance = false,

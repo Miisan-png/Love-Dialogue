@@ -8,6 +8,7 @@ local PROPERTY_MAP = {
     name_font_size = "nameFontSize",
     box_height = "boxHeight",
     padding = "padding",
+    nine_patch_scale = "ninePatchScale",
     typing_speed = "typingSpeed",
     fade_in = "fadeInDuration",
     fade_out = "fadeOutDuration"

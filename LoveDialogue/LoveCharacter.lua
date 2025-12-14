@@ -130,7 +130,7 @@ function LoveCharacter:loadExpression(name, path, rows, cols, index)
     return true
 end
 
-function LoveCharacter:draw(exprName, x, y, w, h)
+function LoveCharacter:draw(exprName, x, y, w, h, flipH)
     local expr = self.expressions[exprName] or self.expressions.Default
     if not expr then return end
     
@@ -140,7 +140,17 @@ function LoveCharacter:draw(exprName, x, y, w, h)
     if w > 10 and expr.w > 0 then sx = w / expr.w end
     if h > 10 and expr.h > 0 then sy = h / expr.h end
 
-    love.graphics.draw(expr.texture, expr.quad, x, y, 0, sx, sy)
+    -- Handle horizontal flip
+    local ox = 0
+    if flipH then
+        sx = -sx
+        -- When flipping, we need to shift the drawing position to the right edge
+        -- OR set the origin (ox) to the width of the image.
+        -- Setting ox is cleaner as it rotates around the origin point.
+        ox = expr.w
+    end
+
+    love.graphics.draw(expr.texture, expr.quad, x, y, 0, sx, sy, ox, 0)
 end
 
 function LoveCharacter:hasPortrait() return next(self.expressions) ~= nil end

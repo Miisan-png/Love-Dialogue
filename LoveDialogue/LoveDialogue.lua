@@ -28,6 +28,7 @@ function LoveDialogue.new(config)
     
     self.config = {
         ninePatchPath = config.ninePatchPath,
+        ninePatchScale = config.ninePatchScale or 1,
         edgeWidth = config.edgeWidth or 10,
         edgeHeight = config.edgeHeight or 10,
         useNinePatch = config.useNinePatch or false,
@@ -48,6 +49,7 @@ function LoveDialogue.new(config)
         enableFadeOut = config.enableFadeOut ~= false,
         autoLayout = config.autoLayoutEnabled ~= false,
         portraitEnabled = config.portraitEnabled ~= false,
+        portraitFlipH = config.portraitFlipH or false,
         skipKey = config.skipKey or "f",
         controls = config.controls or {
             next = {"return", "space"},
@@ -468,7 +470,7 @@ function LoveDialogue:draw()
         love.graphics.rectangle("fill", self.config.padding, h - boxH - self.config.padding, boxW, boxH)
     elseif self.resources.patch then
         love.graphics.setColor(1, 1, 1, opacity)
-        ninePatch.draw(self.resources.patch, self.config.padding, h - boxH - self.config.padding, boxW, boxH)
+        ninePatch.draw(self.resources.patch, self.config.padding, h - boxH - self.config.padding, boxW, boxH, self.config.ninePatchScale)
     end
 
     local textX = self.config.padding * 2
@@ -509,7 +511,7 @@ function LoveDialogue:drawVerticalPortrait(w, h, opacity)
     if char and char:hasPortrait() then
         love.graphics.setColor(1, 1, 1, opacity)
         local pX = (w - 100) / 2 -- Center approximation, real implementation depends on portrait size
-        char:draw(self.state.currentExpression, pX, h - 300, 1, 1) -- Adjust Y as needed
+        char:draw(self.state.currentExpression, pX, h - 300, 1, 1, self.config.portraitFlipH) -- Adjust Y as needed
     end
 end
 
@@ -524,7 +526,7 @@ function LoveDialogue:drawHorizontalPortrait(h, boxH, opacity)
         love.graphics.setColor(0, 0, 0, opacity * 0.5)
         love.graphics.rectangle("fill", x, y, pSize, pSize)
         love.graphics.setColor(1, 1, 1, opacity)
-        char:draw(self.state.currentExpression, x, y, pSize, pSize)
+        char:draw(self.state.currentExpression, x, y, pSize, pSize, self.config.portraitFlipH)
         return x, pSize
     end
     return 0, 0

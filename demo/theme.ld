@@ -4,7 +4,8 @@ text_color: 240, 240, 255, 255
 name_color: 255, 215, 0, 255
 font_size: 18
 name_font_size: 22
-box_height: 220
+box_height: 260
+nine_patch_scale: 3
 padding: 25
 typing_speed: 0.03
 fade_in: 0.3
