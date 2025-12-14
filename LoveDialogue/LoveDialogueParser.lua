@@ -53,113 +53,85 @@ function Parser.parseFile(path, instanceId)
         -- Skip empty lines and comments
         if clean ~= "" and not clean:match("^//") then
             
-            -- 1. Portraits (Legacy single image)
+            -- 1. Portraits
             local pName, pPath = clean:match('^@portrait%s+(%S+)%s+(.+)$')
             if pName then
                 if not chars[pName] then chars[pName] = Character.new(pName, instanceId) end
                 chars[pName]:loadExpression("Default", pPath, 1, 1, 1)
             
-            -- 1b. Sprite Sheets (Uniform Grid)
-            -- @sheet Name Path FrameW FrameH
+            -- 1b. Sprite Sheets
             elseif clean:match('^@sheet%s+') then
-                local name, path, fw, fh = clean:match('^@sheet%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)$')
+                local name, path, fw, fh = clean:match('^@sheet%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)')
                 if name and path then
                     if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     chars[name]:defineSheet(path, tonumber(fw), tonumber(fh))
                 end
 
-            -- 1c. Sprite Frames (Index based)
-            -- @frame Name Expression Index
+            -- 1c. Sprite Frames
             elseif clean:match('^@frame%s+') then
-                local name, expr, idx = clean:match('^@frame%s+(%S+)%s+(%S+)%s+(%d+)$')
+                local name, expr, idx = clean:match('^@frame%s+(%S+)%s+(%S+)%s+(%d+)')
                 if name and expr and idx and chars[name] then
                     chars[name]:addFrame(expr, tonumber(idx))
                 end
 
-            -- 1d. Atlas (Manual)
-            -- @atlas Name Path
+            -- 1d. Atlas
             elseif clean:match('^@atlas%s+') then
-                local name, path = clean:match('^@atlas%s+(%S+)%s+(%S+)$')
+                local name, path = clean:match('^@atlas%s+(%S+)%s+(%S+)')
                 if name and path then
                     if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     chars[name]:defineAtlas(path)
                 end
 
-            -- 1e. Rect (Manual Coordinates)
-            -- @rect Name Expression X Y W H
+            -- 1e. Rect (Removed $ anchor for safety)
             elseif clean:match('^@rect%s+') then
-                local name, expr, x, y, w, h = clean:match('^@rect%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)$')
+                local name, expr, x, y, w, h = clean:match('^@rect%s+(%S+)%s+(%S+)%s+(%-?%d+)%s+(%-?%d+)%s+(%d+)%s+(%d+)')
                 if name and expr and x and y and w and h and chars[name] then
                     chars[name]:addRect(expr, tonumber(x), tonumber(y), tonumber(w), tonumber(h))
+                else
+                    print("Warning: Failed to parse @rect line: " .. clean)
                 end
 
-            -- 2. Logic Commands (Variable Assignment)
+            -- 2. Commands
             elseif clean:match('^%$') then
                 local statement = clean:match('^%$%s*(.+)$')
-                table.insert(lines, {
-                    type = "command",
-                    statement = statement
-                })
+                table.insert(lines, { type = "command", statement = statement })
 
-            -- 3. Flow Control: IF
+            -- 3. Flow Control
             elseif clean:match('^%[if:.+%]$') then
                 local condition = clean:match('^%[if:%s*(.+)%]$')
-                table.insert(lines, {
-                    type = "block_if",
-                    condition = condition
-                })
+                table.insert(lines, { type = "block_if", condition = condition })
 
-            -- 4. Flow Control: ELSE
             elseif clean:match('^%[else%]$') then
                 table.insert(lines, { type = "block_else" })
 
-            -- 5. Flow Control: ENDIF
             elseif clean:match('^%[endif%]$') then
                 table.insert(lines, { type = "block_endif" })
             
-            -- 6. Signals: [signal: Name Args]
+            -- 6. Signals
             elseif clean:match('^%[signal:.+%]$') then
                 local signalContent = clean:match('^%[signal:%s*(.+)%]$')
-                -- Parse "Name Arg1 Arg2..."
                 local name, args = signalContent:match('^(%S+)%s*(.*)$')
-                table.insert(lines, {
-                    type = "signal",
-                    name = name,
-                    args = args -- Raw arg string, can be parsed later or passed as is
-                })
+                table.insert(lines, { type = "signal", name = name, args = args })
             
-            -- 7. Theme Loading
+            -- 7. Theme
             elseif clean:match('^%[load_theme:.+%]$') then
                 local themePath = clean:match('^%[load_theme:%s*(.+)%]$')
-                table.insert(lines, {
-                    type = "theme_load",
-                    path = themePath
-                })
+                table.insert(lines, { type = "theme_load", path = themePath })
 
-            -- 8. Scene Labels
+            -- 8. Labels
             elseif clean:match('^%[.*%]$') then
                 local sName = clean:match('^%[(.*)%]$')
-                scenes[sName] = #lines + 1 -- Point to the next line index
+                scenes[sName] = #lines + 1
             
             -- 9. Choices
             elseif clean:match('^%->') then
                 local txt, remainder = clean:match('^%->%s*([^%[]+)%s*(.*)$')
-                
                 if txt and lines[#lines] then
                     local target = remainder:match('%[target:([%w_]+)%]')
                     local condition = remainder:match('%[if:%s*(.-)%]')
                     local pText, eff = parseEffects(txt)
-                    
                     if lines[#lines].type == "dialogue" then
-                        table.insert(lines[#lines].choices, {
-                            text = txt, 
-                            parsedText = pText, 
-                            effects = eff, 
-                            target = target,
-                            condition = condition
-                        })
-                    else
-                        print("Warning: Choice found without preceding dialogue at line " .. i)
+                        table.insert(lines[#lines].choices, { text = txt, parsedText = pText, effects = eff, target = target, condition = condition })
                     end
                 end
             
