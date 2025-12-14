@@ -12,13 +12,11 @@ function LoveCharacter.new(name, instanceId)
     self.nameColor = {1, 0.8, 0.2}
     self.expressions = {}
     self.sheet = nil
+    self.atlas = nil -- New: Store generic atlas texture
     return self
 end
 
--- Define a spritesheet for this character
--- @param path: Path to the spritesheet image
--- @param frameW: Width of a single frame
--- @param frameH: Height of a single frame
+-- Define a uniform spritesheet (Grid based)
 function LoveCharacter:defineSheet(path, frameW, frameH)
     if not self.instanceId then return false end
     
@@ -35,9 +33,18 @@ function LoveCharacter:defineSheet(path, frameW, frameH)
     return true
 end
 
--- Add an expression using a frame index from the sheet
--- @param name: Name of the expression (e.g., "Happy")
--- @param index: 1-based index of the frame
+-- Define a non-uniform atlas (Coordinate based)
+function LoveCharacter:defineAtlas(path)
+    if not self.instanceId then return false end
+    
+    local img = ResourceManager:getImage(self.instanceId, path)
+    if not img then return false end
+    
+    self.atlas = img
+    return true
+end
+
+-- Add a frame from a uniform sheet
 function LoveCharacter:addFrame(name, index)
     if not self.sheet then
         print("Error: Cannot add frame, no sheet defined for " .. self.name)
@@ -61,7 +68,38 @@ function LoveCharacter:addFrame(name, index)
         texture = s.texture,
         w = s.frameW, 
         h = s.frameH,
-        sx = 1, sy = 1 -- Scales are calculated at draw time based on target size
+        sx = 1, sy = 1 
+    }
+    
+    if name == "Default" or not self.expressions.Default then 
+        self.expressions.Default = self.expressions[name] 
+    end
+    
+    return true
+end
+
+-- Add a specific rectangle from an atlas
+function LoveCharacter:addRect(name, x, y, w, h)
+    local texture = self.atlas or (self.sheet and self.sheet.texture)
+    
+    if not texture then
+        print("Error: Cannot add rect, no atlas/sheet defined for " .. self.name)
+        return false
+    end
+    
+    local quad = ResourceManager:getQuad(
+        self.instanceId, 
+        x, y, w, h, 
+        texture:getWidth(), texture:getHeight(), 
+        self.name .. "_rect_" .. name
+    )
+    
+    self.expressions[name] = {
+        quad = quad,
+        texture = texture,
+        w = w, 
+        h = h,
+        sx = 1, sy = 1 
     }
     
     if name == "Default" or not self.expressions.Default then 

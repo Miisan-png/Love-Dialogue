@@ -59,7 +59,7 @@ function Parser.parseFile(path, instanceId)
                 if not chars[pName] then chars[pName] = Character.new(pName, instanceId) end
                 chars[pName]:loadExpression("Default", pPath, 1, 1, 1)
             
-            -- 1b. Sprite Sheets (New)
+            -- 1b. Sprite Sheets (Uniform Grid)
             -- @sheet Name Path FrameW FrameH
             elseif clean:match('^@sheet%s+') then
                 local name, path, fw, fh = clean:match('^@sheet%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)$')
@@ -68,12 +68,29 @@ function Parser.parseFile(path, instanceId)
                     chars[name]:defineSheet(path, tonumber(fw), tonumber(fh))
                 end
 
-            -- 1c. Sprite Frames (New)
+            -- 1c. Sprite Frames (Index based)
             -- @frame Name Expression Index
             elseif clean:match('^@frame%s+') then
                 local name, expr, idx = clean:match('^@frame%s+(%S+)%s+(%S+)%s+(%d+)$')
                 if name and expr and idx and chars[name] then
                     chars[name]:addFrame(expr, tonumber(idx))
+                end
+
+            -- 1d. Atlas (Manual)
+            -- @atlas Name Path
+            elseif clean:match('^@atlas%s+') then
+                local name, path = clean:match('^@atlas%s+(%S+)%s+(%S+)$')
+                if name and path then
+                    if not chars[name] then chars[name] = Character.new(name, instanceId) end
+                    chars[name]:defineAtlas(path)
+                end
+
+            -- 1e. Rect (Manual Coordinates)
+            -- @rect Name Expression X Y W H
+            elseif clean:match('^@rect%s+') then
+                local name, expr, x, y, w, h = clean:match('^@rect%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)$')
+                if name and expr and x and y and w and h and chars[name] then
+                    chars[name]:addRect(expr, tonumber(x), tonumber(y), tonumber(w), tonumber(h))
                 end
 
             -- 2. Logic Commands (Variable Assignment)
@@ -111,7 +128,7 @@ function Parser.parseFile(path, instanceId)
                     args = args -- Raw arg string, can be parsed later or passed as is
                 })
             
-            -- 7. Theme Loading (New)
+            -- 7. Theme Loading
             elseif clean:match('^%[load_theme:.+%]$') then
                 local themePath = clean:match('^%[load_theme:%s*(.+)%]$')
                 table.insert(lines, {
