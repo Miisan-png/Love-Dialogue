@@ -53,63 +53,88 @@ function Parser.parseFile(path, instanceId)
         -- Skip empty lines and comments
         if clean ~= "" and not clean:match("^//") then
             
-            -- 1. Portraits
-            local pName, pPath = clean:match("^@portrait%s+(%S+)%s+(.+)$")
+            -- 1. Portraits (Legacy single image)
+            local pName, pPath = clean:match('^@portrait%s+(%S+)%s+(.+)$')
             if pName then
                 if not chars[pName] then chars[pName] = Character.new(pName, instanceId) end
                 chars[pName]:loadExpression("Default", pPath, 1, 1, 1)
             
+            -- 1b. Sprite Sheets (New)
+            -- @sheet Name Path FrameW FrameH
+            elseif clean:match('^@sheet%s+') then
+                local name, path, fw, fh = clean:match('^@sheet%s+(%S+)%s+(%S+)%s+(%d+)%s+(%d+)$')
+                if name and path then
+                    if not chars[name] then chars[name] = Character.new(name, instanceId) end
+                    chars[name]:defineSheet(path, tonumber(fw), tonumber(fh))
+                end
+
+            -- 1c. Sprite Frames (New)
+            -- @frame Name Expression Index
+            elseif clean:match('^@frame%s+') then
+                local name, expr, idx = clean:match('^@frame%s+(%S+)%s+(%S+)%s+(%d+)$')
+                if name and expr and idx and chars[name] then
+                    chars[name]:addFrame(expr, tonumber(idx))
+                end
+
             -- 2. Logic Commands (Variable Assignment)
-            elseif clean:match("^%$") then
-                local statement = clean:match("^%$%s*(.+)$")
+            elseif clean:match('^%$') then
+                local statement = clean:match('^%$%s*(.+)$')
                 table.insert(lines, {
                     type = "command",
                     statement = statement
                 })
 
             -- 3. Flow Control: IF
-            elseif clean:match("^%[if:.+%]$)"
-                local condition = clean:match("^%[if:%s*(.+)%]$)"
+            elseif clean:match('^%[if:.+%]$') then
+                local condition = clean:match('^%[if:%s*(.+)%]$')
                 table.insert(lines, {
                     type = "block_if",
                     condition = condition
                 })
 
             -- 4. Flow Control: ELSE
-            elseif clean:match("^%[else%]$)"
+            elseif clean:match('^%[else%]$') then
                 table.insert(lines, { type = "block_else" })
 
             -- 5. Flow Control: ENDIF
-            elseif clean:match("^%[endif%]$)"
+            elseif clean:match('^%[endif%]$') then
                 table.insert(lines, { type = "block_endif" })
             
-            -- NEW 6. Signals: [signal: Name Args]
-            elseif clean:match("^%[signal:.+%]$)"
-                local signalContent = clean:match("^%[signal:%s*(.+)%]$)"
+            -- 6. Signals: [signal: Name Args]
+            elseif clean:match('^%[signal:.+%]$') then
+                local signalContent = clean:match('^%[signal:%s*(.+)%]$')
                 -- Parse "Name Arg1 Arg2..."
-                local name, args = signalContent:match("^(%S+)%s*(.*)$")
+                local name, args = signalContent:match('^(%S+)%s*(.*)$')
                 table.insert(lines, {
                     type = "signal",
                     name = name,
                     args = args -- Raw arg string, can be parsed later or passed as is
                 })
+            
+            -- 7. Theme Loading (New)
+            elseif clean:match('^%[load_theme:.+%]$') then
+                local themePath = clean:match('^%[load_theme:%s*(.+)%]$')
+                table.insert(lines, {
+                    type = "theme_load",
+                    path = themePath
+                })
 
-            -- 7. Scene Labels
-            elseif clean:match("^%[.*%]$)"
-                local sName = clean:match("^%[(.*)%]$)"
+            -- 8. Scene Labels
+            elseif clean:match('^%[.*%]$') then
+                local sName = clean:match('^%[(.*)%]$')
                 scenes[sName] = #lines + 1 -- Point to the next line index
             
-            -- 8. Choices
-            elseif clean:match("^%->") then
-                local txt, remainder = clean:match("^%->%s*([^%[]+)%s*(.*)$")
+            -- 9. Choices
+            elseif clean:match('^%->') then
+                local txt, remainder = clean:match('^%->%s*([^%[]+)%s*(.*)$')
                 
                 if txt and lines[#lines] then
-                    local target = remainder:match("%[target:([%w_]+)%]")
-                    local condition = remainder:match("%[if:%s*(.-)%]")
+                    local target = remainder:match('%[target:([%w_]+)%]')
+                    local condition = remainder:match('%[if:%s*(.-)%]')
                     local pText, eff = parseEffects(txt)
                     
                     if lines[#lines].type == "dialogue" then
-                        table.insert(lines[#lines].choices, { 
+                        table.insert(lines[#lines].choices, {
                             text = txt, 
                             parsedText = pText, 
                             effects = eff, 
@@ -121,17 +146,17 @@ function Parser.parseFile(path, instanceId)
                     end
                 end
             
-            -- 9. Dialogue
+            -- 10. Dialogue
             else
-                local name, expr, text = clean:match("^(%S-)(%b()):%s*(.+)$")
-                if not name then name, text = clean:match("^(%S+):%s*(.+)$") end
+                local name, expr, text = clean:match('^(%S-)(%b()):%s*(.+)$')
+                if not name then name, text = clean:match('^(%S+):%s*(.+)$') end
                 
                 if name then
                     if expr then expr = expr:sub(2, -2) end
                     if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     
-                    local isEnd = text:match("%s*%(end%)$")
-                    if isEnd then text = text:gsub("%s*%(end%)$", "") end
+                    local isEnd = text:match('%s*%(end%)$')
+                    if isEnd then text = text:gsub('%s*%(end%)$', "") end
                     
                     local pText, eff = parseEffects(text)
                     table.insert(lines, {

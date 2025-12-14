@@ -205,6 +205,12 @@ function LoveDialogue:processCurrentLine()
         
         self.state.currentLineIndex = self.state.currentLineIndex + 1
         return self:processCurrentLine() -- Continue immediately
+
+    -- NEW: Handle Theme Loading
+    elseif line.type == "theme_load" then
+        self:loadTheme(line.path)
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine()
     end
 
     -- If we get here, it's a "dialogue" line
@@ -688,6 +694,16 @@ function LoveDialogue:adjustLayout()
     self.config.lineSpacing = math.floor(self.resources.font:getHeight() * 1.5)
     
     if self.config.useNinePatch then self:loadNinePatch() end
+end
+
+function LoveDialogue:loadTheme(themePath)
+    local theme = ThemeParser.parseTheme(themePath)
+    if theme then
+        ThemeParser.applyTheme(self, theme)
+        self:triggerPluginEvent("onThemeLoaded", theme)
+        return true
+    end
+    return false
 end
 
 function LoveDialogue.play(file, conf)

@@ -11,7 +11,7 @@ LoveDialogue is a lightweight, flexible, and robust dialogue engine for the Love
 *   **Logic System**: Variables (`$ gold = 10`) and Conditionals (`[if: gold > 5]`).
 *   **Choice System**: Create branching narratives with infinite options and logic-gating.
 *   **Signal System**: Trigger Lua callbacks from the script to control your game (e.g., `[signal: StartBattle]`).
-*   **Portrait Management**: Automatically handles character portraits.
+*   **Portrait Management**: Support for simple images (`@portrait`) AND optimized spritesheets (`@sheet`/`@frame`).
 *   **Resource Management**: Efficient reference-counting system for images and fonts to prevent memory leaks.
 *   **Responsive Layout**: Auto-adjusts font sizes, text boxes, and line spacing when the window resizes.
 *   **Plugin System**: Extend functionality with custom Lua plugins.
@@ -83,20 +83,31 @@ Use `[if]`, `[else]`, and `[endif]` for flow control.
 [endif]
 ```
 
-### 2. Dialogue & Interpolation
+### 2. Portraits (Spritesheets)
+Define a sheet once, then map frames to expressions.
+```ini
+@sheet Hero assets/hero_sheet.png 100 100
+@frame Hero Default 1
+@frame Hero Happy 2
+@frame Hero Angry 5
+
+Hero: (Happy) This is efficient!
+```
+
+### 3. Dialogue & Interpolation
 Use `${var}` to insert variable values.
 ```ini
 Hero: I have ${gold} gold pieces.
 ```
 
-### 3. Signals (Events)
+### 4. Signals (Events)
 Trigger code in your main game loop.
 ```ini
 [signal: PlaySound explosion.wav]
 [signal: ChangeLevel forest]
 ```
 
-### 4. Choices
+### 5. Choices
 Choices can have conditions attached.
 ```ini
 -> Buy Potion (50g) [target:buy] [if: gold >= 50]

@@ -1,62 +1,46 @@
-@portrait Miisan demo/Assets/girl.png
-@portrait Eiisan demo/Assets/girl2.png
-@portrait Wiisan demo/Assets/girl3.png
+// Load custom theme
+[load_theme: demo/theme.ld]
 
-// Initialize variables
+// Define Character Sheets
+// Name, Path, FrameWidth, FrameHeight
+@sheet Miisan demo/assets/characters/girl1/sheet.png 100 100
+@frame Miisan Default 1
+@frame Miisan Happy 2
+
+@sheet Eiisan demo/assets/characters/girl2/sheet.png 100 100
+@frame Eiisan Default 1
+@frame Eiisan Happy 2
+
+@sheet Wiisan demo/assets/characters/girl3/sheet.png 100 100
+@frame Wiisan Default 1
+@frame Wiisan Happy 2
+
+// Initialize logic
 $ coins = 0
 $ has_met_secret = false
 $ name = "Traveller"
 
 [start]
-Miisan: Welcome, ${name}! This is the new Logic Demo.
-Eiisan: We now have variables. You currently have ${coins} coins.
-Wiisan: I'll give you some! 
-$ coins = coins + 10
-Wiisan: Now you have ${coins} coins! {wave:1}Rich!{/wave}
+Miisan: (Happy) Hello ${name}! Look, I am using a spritesheet now!
+Eiisan: (Default) Me too. We can switch expressions easily.
+Wiisan: (Happy) Yay! Less memory usage!
 
-Miisan: Let's test a signal. 
-Eiisan: I'll change the background color using a signal!
-// Trigger a signal "ChangeBG" with args "0.5 0 0" (Red)
+Miisan: (Default) Let's test the signal again.
 [signal: ChangeBG 0.5 0 0]
-Wiisan: Whoa! It turned red!
-Miisan: Let's turn it back.
+Eiisan: (Happy) Red background!
 [signal: ChangeBG 0.1 0.1 0.2]
-Eiisan: Much better.
+Wiisan: (Default) Back to normal.
 
-Miisan: Let's test a conditional block.
-[if: coins >= 10]
-    Eiisan: Wow, you really do have more than 10 coins.
-    Wiisan: The logic is working perfectly!
-[else]
-    Eiisan: Uh oh, something is wrong. You should have coins.
-[endif]
+Miisan: Do you want some coins?
+-> Yes please! [target:get_coins]
+-> No thanks. [target:end]
 
-Miisan: Now, let's try a conditional choice.
-Eiisan: You can only buy the secret item if you have 50 coins.
-Wiisan: (You only have ${coins}...)
-
--> Buy Secret Item (50 coins) [target:buy_secret] [if: coins >= 50]
--> Ask for more coins [target:get_more]
--> End Demo [target:end]
-
-[get_more]
+[get_coins]
 $ coins = coins + 50
-Wiisan: Fine, here is 50 more coins! You have ${coins} now.
-Miisan: Try the choice again.
--> Buy Secret Item (50 coins) [target:buy_secret] [if: coins >= 50]
+Miisan: (Happy) Here is 50 coins. You have ${coins} now.
 -> End Demo [target:end]
-
-[buy_secret]
-$ coins = coins - 50
-$ has_met_secret = true
-Eiisan: You bought it! You have ${coins} coins left.
-Miisan: Was it worth it?
--> Yes [target:end]
--> No [target:end]
 
 [end]
-Miisan: Thanks for testing!
-[if: has_met_secret]
-    Wiisan: Pssst... thanks for buying my secret item.
-[endif]
-Eiisan: Bye! (end)
+Miisan: (Happy) Thanks for checking out LoveDialogue v1.0!
+Eiisan: (Happy) Check the code to see how easy spritesheets are.
+Wiisan: (Happy) Bye bye! (end)
