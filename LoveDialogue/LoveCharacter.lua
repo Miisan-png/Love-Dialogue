@@ -28,6 +28,8 @@ end
 
 function LoveCharacter:setVoice(path)
     if not self.instanceId then return false end
+    -- Check if it's a file or a manually registered key
+    -- getSound handles both via cache lookup
     self.voice = ResourceManager:getSound(self.instanceId, path, "static")
     return self.voice ~= nil
 end

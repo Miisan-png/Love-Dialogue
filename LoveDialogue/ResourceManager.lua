@@ -10,6 +10,7 @@ local function getCacheKey(type, uniqueKey, ...)
     for i, v in ipairs(args) do
         table.insert(safeArgs, tostring(v))
     end
+    -- Use uniqueKey instead of path
     return string.format("%s:%s:%s", type, tostring(uniqueKey), table.concat(safeArgs, ":"))
 end
 
@@ -70,16 +71,19 @@ function ResourceManager:getSound(id, path, type)
 end
 
 -- Allow manual registration of assets (useful for generated sounds)
+-- Updated: id can be nil for global/manual assets that shouldn't be auto-released by an instance
 function ResourceManager:registerManual(id, type, uniqueKey, asset)
     local key = getCacheKey(type, uniqueKey)
     if not resources.cache[key] then
-        resources.cache[key] = { asset = asset, refCount = 0 }
+        resources.cache[key] = { asset = asset, refCount = 1 } -- Start with 1 ref so it persists
     end
     
-    if not resources.owners[id] then resources.owners[id] = {} end
-    if not resources.owners[id][key] then
-        resources.owners[id][key] = true
-        resources.cache[key].refCount = resources.cache[key].refCount + 1
+    if id then
+        if not resources.owners[id] then resources.owners[id] = {} end
+        if not resources.owners[id][key] then
+            resources.owners[id][key] = true
+            resources.cache[key].refCount = resources.cache[key].refCount + 1
+        end
     end
 end
 

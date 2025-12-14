@@ -104,7 +104,14 @@ function LoveDialogue.new(config)
     }
 
     if self.config.useNinePatch and self.config.ninePatchPath then self:loadNinePatch() end
-    if config.plugins then for _, name in ipairs(config.plugins) do self:registerPlugin(name) end end
+    
+    -- Initialize plugins list BEFORE registering
+    self.plugins = {}
+    if config.plugins then 
+        for _, name in ipairs(config.plugins) do 
+            self:registerPlugin(name) 
+        end 
+    end
     
     self:triggerPluginEvent("onDialogueCreated")
     return self
@@ -257,15 +264,6 @@ function LoveDialogue:skipToBlockEnd()
             end
         elseif line.type == "block_else" then
             if depth == 1 then
-                -- if we were skipping IF, we stop here (start exec ELSE)
-                -- if we were skipping ELSE, we keep skipping? 
-                -- The caller knows context. But a simple skip usually wants to find the 'next' block.
-                -- For IF false: Find ELSE or ENDIF.
-                -- For ELSE skip: Find ENDIF.
-                
-                -- Simplified: If we hit ELSE at depth 1, let's stop and let process loop decide?
-                -- Actually, the logic in update loop handles the ELSE skip logic by calling this again.
-                -- So if we find ELSE at depth 1, we stop.
                 self.state.currentLineIndex = self.state.currentLineIndex + 1
                 return
             end
@@ -338,10 +336,6 @@ function LoveDialogue:handleTypewriter(dt)
             -- Play Sound
             local char = self.state.characters[self.state.currentCharacter]
             if char and char.voice then
-                -- Clone source to allow overlapping sounds (optional, or just play)
-                -- love.audio.play(char.voice) will restart it if it's not static?
-                -- Static sources can be played multiple times if cloned.
-                -- For simple "blip", just stop and play is fine to prevent buildup.
                 char.voice:stop()
                 char.voice:play()
             end
