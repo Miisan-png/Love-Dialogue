@@ -32,6 +32,9 @@ function LoveDialogue.new(config)
         edgeWidth = config.edgeWidth or 10,
         edgeHeight = config.edgeHeight or 10,
         useNinePatch = config.useNinePatch or false,
+        
+        indicatorPath = config.indicatorPath, -- Path to custom indicator image
+        
         characterType = config.character_type or 0,
         letterSpacingLatin = config.letterSpacingLatin or 4,
         letterSpacingCJK = config.letterSpacingCJK or 10,
@@ -90,8 +93,8 @@ function LoveDialogue.new(config)
         typingSpeed = self.config.speeds[self.config.initialSpeed] or 0.05,
         currentSpeedSetting = self.config.initialSpeed,
         filePath = "",
-        bgm = nil, -- Current background music source
-        waitingForInput = false -- Indicator flag
+        bgm = nil,
+        waitingForInput = false
     }
 
     for k,v in pairs(self.config.initialVariables) do
@@ -102,10 +105,12 @@ function LoveDialogue.new(config)
         font = ResourceManager:getFont(self.instanceId, config.fontSize or Constants.DEFAULT_FONT_SIZE, nil, "main_font"),
         nameFont = ResourceManager:getFont(self.instanceId, config.nameFontSize or Constants.DEFAULT_NAME_FONT_SIZE, nil, "name_font"),
         ninePatch = nil,
-        patch = nil
+        patch = nil,
+        indicator = nil
     }
 
     if self.config.useNinePatch and self.config.ninePatchPath then self:loadNinePatch() end
+    if self.config.indicatorPath then self:loadIndicator() end
     
     self.plugins = {}
     if config.plugins then 
@@ -125,6 +130,13 @@ function LoveDialogue:loadNinePatch()
         self.resources.patch = ninePatch.loadSameEdge(img, self.config.edgeWidth, self.config.edgeHeight)
     else
         self.config.useNinePatch = false
+    end
+end
+
+function LoveDialogue:loadIndicator()
+    local img = ResourceManager:getImage(self.instanceId, self.config.indicatorPath)
+    if img then
+        self.resources.indicator = img
     end
 end
 
@@ -193,15 +205,13 @@ function LoveDialogue:loadTheme(themePath)
 end
 
 function LoveDialogue:playBGM(path, loop)
-    -- Stop existing
     if self.state.bgm then 
         self.state.bgm:stop() 
     end
-    
     local source = ResourceManager:getSound(self.instanceId, path, "stream")
     if source then
         source:setLooping(loop ~= false)
-        source:setVolume(0.5) -- Reasonable default
+        source:setVolume(0.5) 
         source:play()
         self.state.bgm = source
     end
@@ -258,13 +268,13 @@ function LoveDialogue:processCurrentLine()
             table.insert(self.state.activeTweens, tween)
         end
         self.state.currentLineIndex = self.state.currentLineIndex + 1
-        return self:processCurrentLine()
+        return self:processCurrentLine() 
         
-    -- NEW: BGM Commands
     elseif line.type == "bgm" then
         self:playBGM(line.path, true)
         self.state.currentLineIndex = self.state.currentLineIndex + 1
         return self:processCurrentLine()
+        
     elseif line.type == "stop_bgm" then
         self:stopBGM()
         self.state.currentLineIndex = self.state.currentLineIndex + 1
@@ -325,7 +335,7 @@ function LoveDialogue:setDialogueState(line)
     self.state.choiceMode = (#self.state.activeChoices > 0)
     if self.state.choiceMode then self.state.displayedText = self.state.fullText; self.state.selectedChoice = 1 end
     self.state.autoAdvanceTimer = 0
-    self.state.waitingForInput = false -- Reset
+    self.state.waitingForInput = false
     self:triggerPluginEvent("onAfterDialogueSet", line)
 end
 
@@ -372,7 +382,6 @@ function LoveDialogue:handleTypewriter(dt)
             self:triggerPluginEvent("onCharacterTyped", self.state.displayedText)
         end
     else
-        -- Typewriter done, waiting for user
         self.state.waitingForInput = true
         if self.state.autoAdvance then
             self.state.autoAdvanceTimer = self.state.autoAdvanceTimer + dt
@@ -415,20 +424,24 @@ function LoveDialogue:draw()
         love.graphics.rectangle("fill", boxW - 40, h - self.config.padding - 10, 30 * (self.state.autoAdvanceTimer / self.config.autoAdvanceDelay), 5)
     end
     
-    -- Draw Input Indicator (Bouncing Arrow)
     if self.state.waitingForInput and not self.state.choiceMode then
-        local bounce = math.sin(love.timer.getTime() * 8) * 3
-        love.graphics.setColor(1, 1, 1, opacity * 0.8)
-        -- Draw a simple triangle using polygon
-        local ix = w - self.config.padding - 30
-        local iy = h - self.config.padding - 20 + bounce
-        love.graphics.polygon("fill", ix, iy, ix+10, iy, ix+5, iy+10)
+        local bounce = math.sin(love.timer.getTime() * 8) * 5
+        local ix = w - self.config.padding - 40
+        local iy = h - self.config.padding - 30 + bounce
+        love.graphics.setColor(1, 1, 1, opacity * 0.9)
+        
+        if self.resources.indicator then
+            -- Scale it up a bit (e.g. 2x)
+            love.graphics.draw(self.resources.indicator, ix, iy, 0, 2, 2)
+        else
+            -- Fallback triangle
+            love.graphics.polygon("fill", ix, iy, ix+20, iy, ix+10, iy+15)
+        end
     end
     
     self:triggerPluginEvent("onAfterDraw")
 end
 
--- ... [Drawing helpers omitted for brevity, unchanged] ...
 function LoveDialogue:drawVerticalPortrait(w, h, opacity)
     if not self.config.portraitEnabled then return end
     local char = self.state.characters[self.state.currentCharacter]
@@ -532,7 +545,6 @@ function LoveDialogue:keypressed(key)
     local c = self.config.controls
     local function is(k, list) for _, v in ipairs(list) do if v == k then return true end end return false end
     if is(key, c.toggleSpeed) then
-        -- Cycle speed
     elseif is(key, c.toggleAuto) then self.state.autoAdvance = not self.state.autoAdvance
     elseif key == self.config.skipKey then
         if self.state.displayedText ~= self.state.fullText and not self.state.choiceMode then self.state.displayedText = self.state.fullText end

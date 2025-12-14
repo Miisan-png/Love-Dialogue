@@ -5,7 +5,7 @@ local DebugPlugin = require("LoveDialogue.plugins.DebugPlugin")
 local myDialogue
 local savedState = nil
 local config = nil
-local nextScriptPath = nil -- Queue for scene switching
+local nextScriptPath = nil
 
 -- Use a variable for background color to demonstrate signal changes
 local bgColor = {0.1, 0.1, 0.2, 1}
@@ -17,10 +17,7 @@ local function onSignal(name, args)
             bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
         end
     elseif name == "LoadScript" then
-        -- Queue the switch for the next update cycle
-        -- This prevents destroying the dialogue instance while it's still running its update loop
         nextScriptPath = args
-        
     elseif name == "QuitGame" then
         love.event.quit()
     elseif name == "PlaySound" then
@@ -34,6 +31,24 @@ function love.load()
     love.window.setTitle("LoveDialogue Engine Demo")
     love.window.setMode(1024, 768, {resizable=true})
     love.graphics.setNewFont(16)
+    
+    -- Generate indicator if missing
+    local indPath = "demo/assets/ui/indicator.png"
+    if not love.filesystem.getInfo(indPath) then
+        local imgData = love.image.newImageData(16, 16)
+        for y=0, 15 do
+            for x=0, 15 do
+                local alpha = 0
+                if y < 8 then
+                    if x >= (7 - y) and x <= (8 + y) then alpha = 1 end
+                else
+                    if x >= 6 and x <= 9 and y < 14 then alpha = 1 end
+                end
+                if alpha > 0 then imgData:setPixel(x, y, 1, 1, 1, 1) end
+            end
+        end
+        imgData:encode("png", indPath)
+    end
     
     PluginManager:register(DebugPlugin)
     
@@ -59,6 +74,7 @@ function love.load()
         ninePatchScale = 3,
         edgeWidth = 12,
         edgeHeight = 12,
+        indicatorPath = indPath,
         plugins = {"Debug"},
         pluginData = { Debug = { enabled = false } }
     }
@@ -68,16 +84,12 @@ function love.load()
 end
 
 function love.update(dt)
-    -- Handle scene switching safely at start of frame
     if nextScriptPath then
-        print("Switching to script:", nextScriptPath)
-        if myDialogue then
-            myDialogue:destroy()
-        end
+        if myDialogue then myDialogue:destroy() end
         myDialogue = LoveDialogue.play(nextScriptPath, config)
         myDialogue.onSignal = onSignal
         nextScriptPath = nil
-        return -- Skip update for one frame to let things settle
+        return
     end
 
     if myDialogue then myDialogue:update(dt) end
