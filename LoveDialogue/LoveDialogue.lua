@@ -70,7 +70,7 @@ function LoveDialogue.new(config)
         characters = {},
         scenes = {},
         variables = {},
-        activeTweens = {}, -- Store active tweens
+        activeTweens = {}, 
         currentLineIndex = 1,
         isActive = false,
         status = "inactive", 
@@ -89,7 +89,9 @@ function LoveDialogue.new(config)
         autoAdvanceTimer = 0,
         typingSpeed = self.config.speeds[self.config.initialSpeed] or 0.05,
         currentSpeedSetting = self.config.initialSpeed,
-        filePath = "" -- Track file for save
+        filePath = "",
+        bgm = nil, -- Current background music source
+        waitingForInput = false -- Indicator flag
     }
 
     for k,v in pairs(self.config.initialVariables) do
@@ -105,7 +107,6 @@ function LoveDialogue.new(config)
 
     if self.config.useNinePatch and self.config.ninePatchPath then self:loadNinePatch() end
     
-    -- Initialize plugins list BEFORE registering
     self.plugins = {}
     if config.plugins then 
         for _, name in ipairs(config.plugins) do 
@@ -117,7 +118,6 @@ function LoveDialogue.new(config)
     return self
 end
 
--- ... [Rest of methods like loadNinePatch, registerPlugin remain same] ...
 function LoveDialogue:loadNinePatch()
     local img = ResourceManager:getImage(self.instanceId, self.config.ninePatchPath)
     if img then
@@ -154,7 +154,6 @@ function LoveDialogue:loadFromFile(path)
     self:triggerPluginEvent("onFileLoaded", path, lines, chars, scenes)
 end
 
--- Save/Load System
 function LoveDialogue:saveState()
     return {
         line = self.state.currentLineIndex,
@@ -165,12 +164,10 @@ end
 
 function LoveDialogue:loadState(data)
     if not data or not data.file then return false end
-    
-    -- Reload file to ensure clean state
     self:loadFromFile(data.file)
     self.state.variables = data.variables
     self.state.currentLineIndex = data.line
-    self:start() -- This will jump to current line
+    self:start()
     return true
 end
 
@@ -195,7 +192,28 @@ function LoveDialogue:loadTheme(themePath)
     return false
 end
 
--- ... [Process Loop] ...
+function LoveDialogue:playBGM(path, loop)
+    -- Stop existing
+    if self.state.bgm then 
+        self.state.bgm:stop() 
+    end
+    
+    local source = ResourceManager:getSound(self.instanceId, path, "stream")
+    if source then
+        source:setLooping(loop ~= false)
+        source:setVolume(0.5) -- Reasonable default
+        source:play()
+        self.state.bgm = source
+    end
+end
+
+function LoveDialogue:stopBGM()
+    if self.state.bgm then
+        self.state.bgm:stop()
+        self.state.bgm = nil
+    end
+end
+
 function LoveDialogue:processCurrentLine()
     local line = self.state.lines[self.state.currentLineIndex]
     if not line then return self:endDialogue() end
@@ -234,14 +252,23 @@ function LoveDialogue:processCurrentLine()
         return self:processCurrentLine()
         
     elseif line.type == "move" then
-        -- Handle Tween: [move: Character x y duration]
         local char = self.state.characters[line.name]
         if char then
             local tween = Tween.new(char, { x = line.x, y = line.y }, line.duration, "easeout")
             table.insert(self.state.activeTweens, tween)
         end
         self.state.currentLineIndex = self.state.currentLineIndex + 1
-        return self:processCurrentLine() -- Move doesn't block text, it continues
+        return self:processCurrentLine()
+        
+    -- NEW: BGM Commands
+    elseif line.type == "bgm" then
+        self:playBGM(line.path, true)
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine()
+    elseif line.type == "stop_bgm" then
+        self:stopBGM()
+        self.state.currentLineIndex = self.state.currentLineIndex + 1
+        return self:processCurrentLine()
     end
 
     self:setDialogueState(line)
@@ -298,6 +325,7 @@ function LoveDialogue:setDialogueState(line)
     self.state.choiceMode = (#self.state.activeChoices > 0)
     if self.state.choiceMode then self.state.displayedText = self.state.fullText; self.state.selectedChoice = 1 end
     self.state.autoAdvanceTimer = 0
+    self.state.waitingForInput = false -- Reset
     self:triggerPluginEvent("onAfterDialogueSet", line)
 end
 
@@ -305,7 +333,6 @@ function LoveDialogue:update(dt)
     if not self.state.isActive then return end
     for _, p in ipairs(self.plugins) do if p.modifyDeltaTime then dt = p.modifyDeltaTime(self, self.config.pluginData[p.name], dt) end end
     
-    -- Update Tweens
     for i = #self.state.activeTweens, 1, -1 do
         local t = self.state.activeTweens[i]
         if Tween.update(t, dt) then
@@ -330,10 +357,10 @@ end
 function LoveDialogue:handleTypewriter(dt)
     local fullText = self.state.fullText
     if self.state.displayedText ~= fullText then
+        self.state.waitingForInput = false
         self.state.typewriterTimer = self.state.typewriterTimer + dt
         if self.state.typewriterTimer >= self.state.typingSpeed then
             self.state.typewriterTimer = 0
-            -- Play Sound
             local char = self.state.characters[self.state.currentCharacter]
             if char and char.voice then
                 char.voice:stop()
@@ -344,9 +371,13 @@ function LoveDialogue:handleTypewriter(dt)
             self.state.displayedText = fullText:sub(1, (p or #fullText + 1) - 1)
             self:triggerPluginEvent("onCharacterTyped", self.state.displayedText)
         end
-    elseif self.state.autoAdvance then
-        self.state.autoAdvanceTimer = self.state.autoAdvanceTimer + dt
-        if self.state.autoAdvanceTimer >= self.config.autoAdvanceDelay then self:advance() end
+    else
+        -- Typewriter done, waiting for user
+        self.state.waitingForInput = true
+        if self.state.autoAdvance then
+            self.state.autoAdvanceTimer = self.state.autoAdvanceTimer + dt
+            if self.state.autoAdvanceTimer >= self.config.autoAdvanceDelay then self:advance() end
+        end
     end
 end
 
@@ -383,10 +414,21 @@ function LoveDialogue:draw()
         love.graphics.setColor(1, 1, 1, opacity * 0.7)
         love.graphics.rectangle("fill", boxW - 40, h - self.config.padding - 10, 30 * (self.state.autoAdvanceTimer / self.config.autoAdvanceDelay), 5)
     end
+    
+    -- Draw Input Indicator (Bouncing Arrow)
+    if self.state.waitingForInput and not self.state.choiceMode then
+        local bounce = math.sin(love.timer.getTime() * 8) * 3
+        love.graphics.setColor(1, 1, 1, opacity * 0.8)
+        -- Draw a simple triangle using polygon
+        local ix = w - self.config.padding - 30
+        local iy = h - self.config.padding - 20 + bounce
+        love.graphics.polygon("fill", ix, iy, ix+10, iy, ix+5, iy+10)
+    end
+    
     self:triggerPluginEvent("onAfterDraw")
 end
 
--- ... [Drawing helpers remain mostly same but use char.scale/x/y if set] ...
+-- ... [Drawing helpers omitted for brevity, unchanged] ...
 function LoveDialogue:drawVerticalPortrait(w, h, opacity)
     if not self.config.portraitEnabled then return end
     local char = self.state.characters[self.state.currentCharacter]
@@ -502,6 +544,7 @@ function LoveDialogue:keypressed(key)
 end
 
 function LoveDialogue:destroy()
+    if self.state.bgm then self.state.bgm:stop() end
     ResourceManager:releaseInstance(self.instanceId)
     for _, p in ipairs(self.plugins) do if p.cleanup then p.cleanup(self, self.config.pluginData[p.name]) end end
     self.plugins = {}

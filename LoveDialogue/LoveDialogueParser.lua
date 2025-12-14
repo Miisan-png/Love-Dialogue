@@ -51,6 +51,7 @@ function Parser.parseFile(path, instanceId)
     for _, line in ipairs(rawLines) do
         local clean = line:match("^%s*(.-)%s*$")
         if clean ~= "" and not clean:match("^//") then
+            
             -- 1. Portraits
             local pName, pPath = clean:match('^@portrait%s+(%S+)%s+(.+)$')
             if pName then
@@ -84,7 +85,8 @@ function Parser.parseFile(path, instanceId)
             -- 1f. Voice
             elseif clean:match('^@voice%s+') then
                 local name, path = clean:match('^@voice%s+(%S+)%s+(.+)$')
-                if name and path and chars[name] then
+                if name and path then
+                    if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     chars[name]:setVoice(path)
                 end
 
@@ -101,7 +103,7 @@ function Parser.parseFile(path, instanceId)
             elseif clean:match('^%[endif%]$') then
                 table.insert(lines, { type = "block_endif" })
             
-            -- NEW: Move Command [move: Name x y time]
+            -- Move
             elseif clean:match('^%[move:.+%]$') then
                 local content = clean:match('^%[move:%s*(.+)%]$')
                 local name, x, y, time = content:match('^(%S+)%s+(%-?%d+)%s+(%-?%d+)%s*(.*)$')
@@ -110,20 +112,27 @@ function Parser.parseFile(path, instanceId)
                     table.insert(lines, { type = "move", name = name, x = tonumber(x), y = tonumber(y), duration = time })
                 end
 
-            -- 6. Signals
+            -- NEW: BGM
+            elseif clean:match('^%[bgm:.+%]$') then
+                local path = clean:match('^%[bgm:%s*(.+)%]$')
+                table.insert(lines, { type = "bgm", path = path })
+            elseif clean:match('^%[stop_bgm%]') then
+                table.insert(lines, { type = "stop_bgm" })
+
+            -- Signals
             elseif clean:match('^%[signal:.+%]$') then
                 local signalContent = clean:match('^%[signal:%s*(.+)%]$')
                 local name, args = signalContent:match('^(%S+)%s*(.*)$')
                 table.insert(lines, { type = "signal", name = name, args = args })
-            -- 7. Theme
+            -- Theme
             elseif clean:match('^%[load_theme:.+%]$') then
                 local themePath = clean:match('^%[load_theme:%s*(.+)%]$')
                 table.insert(lines, { type = "theme_load", path = themePath })
-            -- 8. Labels
+            -- Labels
             elseif clean:match('^%[.*%]$') then
                 local sName = clean:match('^%[(.*)%]$')
                 scenes[sName] = #lines + 1
-            -- 9. Choices
+            -- Choices
             elseif clean:match('^%->') then
                 local txt, remainder = clean:match('^%->%s*([^%[]+)%s*(.*)$')
                 if txt and lines[#lines] then
@@ -134,7 +143,7 @@ function Parser.parseFile(path, instanceId)
                         table.insert(lines[#lines].choices, { text = txt, parsedText = pText, effects = eff, target = target, condition = condition })
                     end
                 end
-            -- 10. Dialogue
+            -- Dialogue
             else
                 local name, expr, text
                 name, expr, text = clean:match('^(%S-)(%b()):%s*(.+)$')
