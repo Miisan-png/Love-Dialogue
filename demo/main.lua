@@ -46,7 +46,7 @@ function love.load()
         pluginData = { Debug = { enabled = false } }
     }
     
-    myDialogue = LoveDialogue.play("demo/demo.ld", config)
+    myDialogue = LoveDialogue.play("demo/launcher.ld", config)
     
     -- Register a simple callback for signals
     myDialogue.onSignal = function(name, args)
@@ -55,8 +55,23 @@ function love.load()
             if r and g and b then
                 bgColor = {tonumber(r), tonumber(g), tonumber(b), 1}
             end
+        elseif name == "LoadScript" then
+            -- args is the path
+            -- We need to restart the dialogue with the new file
+            -- Reuse the same config
+            myDialogue = LoveDialogue.play(args, config)
+            -- Re-attach signal listener since play() creates new instance
+            myDialogue.onSignal = function(n, a) love.load_signals(n, a) end
+        elseif name == "QuitGame" then
+            love.event.quit()
+        elseif name == "PlaySound" then
+             local s = love.audio.newSource(args, "static")
+             s:play()
         end
     end
+    
+    -- Helper to keep signal logic in one place
+    love.load_signals = myDialogue.onSignal
 end
 
 function love.update(dt)
