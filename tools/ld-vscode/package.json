@@ -2,8 +2,12 @@
   "name": "ld-language-support",
   "displayName": "LoveDialogue Language Support",
   "description": "Syntax highlighting and snippets for LoveDialogue (.ld) files",
-  "version": "1.0.0",
-  "publisher": "miisan",
+  "version": "1.2.2",
+  "publisher": "miisan-mi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miisan/LoveDialogue"
+  },
   "engines": {
     "vscode": "^1.60.0"
   },

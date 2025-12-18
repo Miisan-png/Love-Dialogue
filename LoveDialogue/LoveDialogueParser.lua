@@ -89,6 +89,13 @@ function Parser.parseFile(path, instanceId)
                     if not chars[name] then chars[name] = Character.new(name, instanceId) end
                     chars[name]:setVoice(path)
                 end
+            elseif clean:match('^@color%s+') then
+                local name, hex = clean:match('^@color%s+(%S+)%s+(%S+)$')
+                if name and hex then
+                    if not chars[name] then chars[name] = Character.new(name, instanceId) end
+                    local r, g, b = hex:match('(%x%x)(%x%x)(%x%x)')
+                    if r then chars[name].nameColor = {tonumber(r,16)/255, tonumber(g,16)/255, tonumber(b,16)/255, 1} end
+                end
 
             -- 2. Commands / Logic
             elseif clean:match('^%$') then

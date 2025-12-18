@@ -25,6 +25,13 @@
 		],
 		"description": "Define a character atlas with manual rects"
 	},
+	"Definition: Voice": {
+		"prefix": "@voice",
+		"body": [
+			"@voice ${1:Name} ${2:path/to/sound.wav}"
+		],
+		"description": "Define character voice sound"
+	},
 	"Logic: If Block": {
 		"prefix": "if",
 		"body": [

@@ -1,36 +1,45 @@
-# Love-Dialogue (.ld) Language Support
+# LoveDialogue Language Support
+
+Syntax highlighting, snippets, and language support for LoveDialogue (.ld) files in Visual Studio Code.
 
 ## Features
 
-This extension provides enhanced support for .ld files, a custom scripting language for dialogues used with the [Love-Dialogue library](https://github.com/Rena-afk-c/Love-Dialogue) for Love2D games.
+- **Syntax Highlighting** - Full support for all LoveDialogue constructs
+- **Code Snippets** - Quick insertion of common patterns
+- **Auto-completion** - Bracket matching and auto-closing
+- **Comment Support** - Line comments with `//`
 
-- Syntax highlighting for character names 
-- Custom file icon for .ld files
+## Supported Syntax
 
-## About Love-Dialogue
-Love-Dialogue is a simple-to-use Dialogue Library for Love2d with a custom scripting language for dialogues. This extension enhances the development experience when working with .ld files in this library.
+- Variables: `$ name = value`
+- Character dialogue: `Name: Hello world!`
+- Expressions: `Name: (Happy) I'm excited!`
+- Commands: `[signal: event]`, `[bgm: music.wav]`
+- Logic: `[if: condition]`, `[else]`, `[endif]`
+- Choices: `-> Option [target:label] [if: condition]`
+- Text effects: `{wave:1}text{/wave}`, `{color:FF0000}red{/color}`
+- Portraits: `@atlas Name image.png`, `@voice Name sound.wav`
 
-## Usage
+## Quick Start
 
-1. Install the extension
-2. Open any .ld file used with the Love-Dialogue library
-3. Start writing your dialogues!
+1. Create a new file with `.ld` extension
+2. Start typing - syntax highlighting activates automatically
+3. Use snippets: type `scene`, `if`, `choice`, etc. and press Tab
 
-Example:
-```
-CharacterName: This is a sample dialogue for Love-Dialogue!
-AnotherCharacter: It's so easy to write dialogues now!
-```
+## Snippets
 
-## Requirements
+- `scene` - Create dialogue scene
+- `@atlas` - Define character atlas
+- `@voice` - Add character voice
+- `if` - Conditional block
+- `choice` - Add choice option
+- `signal` - Trigger game event
+- `wave` - Wave text effect
 
-- VS Code 1.60.0 or higher
-- [Love-Dialogue library](https://github.com/Rena-afk-c/Love-Dialogue)
+## About LoveDialogue
 
-## Release Notes
+LoveDialogue is a lightweight dialogue engine for Love2D games featuring rich text effects, character portraits, logic systems, and more.
 
-### 0.0.4
+## License
 
-Initial release of Love-Dialogue (.ld) Language Support
-
----
+MIT License

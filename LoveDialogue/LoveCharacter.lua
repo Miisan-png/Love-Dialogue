@@ -97,6 +97,22 @@ function LoveCharacter:draw(exprName, x, y, w, h, flipH)
     love.graphics.draw(expr.texture, expr.quad, drawX, drawY, self.rotation, sx, sy, ox, 0)
 end
 
+function LoveCharacter:drawPortrait(exprName, x, y, w, h, flipH)
+    if not self.visible then return end
+    local expr = self.expressions[exprName] or self.expressions.Default
+    if not expr then return end
+    
+    local sx, sy = w, h
+    if w > 10 and expr.w > 0 then sx = w / expr.w end
+    if h > 10 and expr.h > 0 then sy = h / expr.h end
+    
+    local ox = 0
+    if flipH then sx = -sx; ox = expr.w end
+
+    love.graphics.setColor(1, 1, 1, self.alpha)
+    love.graphics.draw(expr.texture, expr.quad, x, y, 0, sx, sy, ox, 0)
+end
+
 function LoveCharacter:hasPortrait() return next(self.expressions) ~= nil end
 function LoveCharacter:getExpression(name) return self.expressions[name] or self.expressions.Default end
 

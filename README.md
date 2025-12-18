@@ -1,119 +1,164 @@
 # LoveDialogue
 
-LoveDialogue is a lightweight, flexible, and robust dialogue engine for the Love2D framework. It features a custom scripting language, rich text effects, character portrait management, logic/variable support, and a plugin system.
+A lightweight, flexible dialogue engine for Love2D with a custom scripting language, rich text effects, and visual novel features.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+Grab the latest ready-to-use zip from the [Releases](https://github.com/Miisan-png/Love-Dialogue/releases/latest) page and drop the `LoveDialogue` folder into your project.
 
 ## Features
 
-*   **Simple Scripting**: Write dialogue in an easy-to-read .ld format.
-*   **Rich Text Effects**: Built-in support for wave, shake, color, bold, and nested effects.
-*   **Logic System**: Variables (`$ gold = 10`) and Conditionals (`[if: gold > 5]`).
-*   **Choice System**: Create branching narratives with infinite options and logic-gating.
-*   **Signal System**: Trigger Lua callbacks from the script to control your game (e.g., `[signal: StartBattle]`).
-*   **Portrait Management**: Support for simple images (`@portrait`) AND optimized spritesheets (`@sheet`/`@frame`).
-*   **Resource Management**: Efficient reference-counting system for images and fonts to prevent memory leaks.
-*   **Responsive Layout**: Auto-adjusts font sizes, text boxes, and line spacing when the window resizes.
-*   **Plugin System**: Extend functionality with custom Lua plugins.
+- **Simple Scripting** - Write dialogue in easy-to-read `.ld` format
+- **Rich Text Effects** - Wave, shake, color, and nested effects
+- **Logic System** - Variables and conditionals
+- **Choice System** - Branching narratives with conditional options
+- **Signal System** - Trigger Lua callbacks from scripts
+- **Portrait System** - Spritesheets, atlases, and animations
+- **Theme System** - Customize appearance via theme files
+- **Move/Tween** - Animate character portraits
+- **Audio** - Voice per character and background music
+- **Editor Support** - VS Code and Neovim extensions included
 
-## Getting Started
+## Screenshots
 
-### Installation
+![Dialogue example](media/screenshot_1.png)
 
-Copy the `LoveDialogue` folder into your project's directory.
+![Choices example](media/screenshot_2.png)
 
-### Basic Usage
+## Quick Start
 
-1.  **Require the module**:
-    ```lua
-    local LoveDialogue = require("LoveDialogue")
-    ```
+```lua
+local LoveDialogue = require("LoveDialogue")
 
-2.  **Initialize and Play**:
-    ```lua
-    function love.load()
-        local config = {
-            boxHeight = 200,
-            portraitEnabled = true,
-            portraitSize = 150,
-            initialVariables = { coins = 0 }
-        }
-        -- load and start playing a script
-        dialogue = LoveDialogue.play("scripts/chapter1.ld", config)
-        
-        -- Listen for signals from the script
-        dialogue.onSignal = function(name, args)
-            if name == "GiveItem" then
-                print("Giving item:", args)
-            end
-        end
+function love.load()
+    dialogue = LoveDialogue.play("scripts/intro.ld", {
+        boxHeight = 200,
+        boxWidth = 800,
+        centerBox = true,
+        boxColor = {0, 0, 0, 1},
+        borderColor = {1, 1, 1, 1},
+        borderWidth = 3
+    })
+    
+    dialogue.onSignal = function(name, args)
+        if name == "GiveItem" then print("Got:", args) end
     end
-    ```
+end
 
-3.  **Update and Draw**:
-    ```lua
-    function love.update(dt)
-        if dialogue then dialogue:update(dt) end
-    end
+function love.update(dt)
+    if dialogue then dialogue:update(dt) end
+end
 
-    function love.draw()
-        if dialogue then dialogue:draw() end
-    end
+function love.draw()
+    if dialogue then dialogue:draw() end
+end
 
-    function love.keypressed(key)
-        if dialogue then dialogue:keypressed(key) end
-    end
-    ```
+function love.keypressed(key)
+    if dialogue then dialogue:keypressed(key) end
+end
+```
 
 ## Script Syntax (.ld)
 
-### 1. Variables & Logic
-Initialize and update variables using `$`.
+### Character Setup
 ```ini
-$ gold = 100
-$ name = "Hero"
+@atlas Hero assets/hero.png
+@rect Hero Default 0 0 100 100
+@rect Hero Happy 100 0 100 100
+@voice Hero assets/sfx/voice.wav
+@color Hero 00FFFF
 ```
 
-Use `[if]`, `[else]`, and `[endif]` for flow control.
+### Dialogue
 ```ini
-[if: gold >= 50]
-    Shopkeeper: You look rich!
-[else]
-    Shopkeeper: Get out of here, poor peasant!
-[endif]
-```
-
-### 2. Portraits (Spritesheets)
-Define a sheet once, then map frames to expressions.
-```ini
-@sheet Hero assets/hero_sheet.png 100 100
-@frame Hero Default 1
-@frame Hero Happy 2
-@frame Hero Angry 5
-
-Hero: (Happy) This is efficient!
-```
-
-### 3. Dialogue & Interpolation
-Use `${var}` to insert variable values.
-```ini
+Hero: Hello world!
+Hero: (Happy) I'm excited!
 Hero: I have ${gold} gold pieces.
 ```
 
-### 4. Signals (Events)
-Trigger code in your main game loop.
+### Variables & Logic
 ```ini
-[signal: PlaySound explosion.wav]
-[signal: ChangeLevel forest]
+$ gold = 100
+$ met_boss = true
+
+[if: gold >= 50]
+    Merchant: Welcome, valued customer!
+[else]
+    Merchant: Come back when you have money.
+[endif]
 ```
 
-### 5. Choices
-Choices can have conditions attached.
+### Choices
 ```ini
--> Buy Potion (50g) [target:buy] [if: gold >= 50]
+-> Buy Potion [target:buy] [if: gold >= 50]
 -> Leave [target:leave]
+
+[buy]
+Merchant: Here you go!
+```
+
+### Commands
+```ini
+[signal: PlaySound explosion.wav]
+[move: Hero 100 0 0.5]
+[fade: out 1.0]
+[fade: in 1.0 #FFFFFF]
+[bgm: assets/music.wav]
+[load_theme: themes/dark.ld]
+```
+
+### Text Effects
+```ini
+Hero: {wave:1}Wobbly text!{/wave}
+Hero: {shake:2}Shaky text!{/shake}
+Hero: {color:FF0000}Red text!{/color}
+```
+
+## Theme Files
+
+Create `.ld` theme files to customize appearance:
+
+```ini
+[theme]
+box_color: 0, 0, 0, 255
+border_color: 255, 255, 255, 255
+border_width: 4
+text_color: 255, 255, 255, 255
+box_height: 200
+box_width: 800
+center_box: true
+use_nine_patch: false
+portrait_size: 140
+nine_patch_scale: 2
+typing_speed: 0.04
+```
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `boxHeight` | number | 150 | Dialogue box height |
+| `boxWidth` | number | nil | Box width (nil = full width) |
+| `centerBox` | boolean | false | Center the dialogue box |
+| `boxColor` | table | {0.1,0.1,0.1,0.9} | Background color |
+| `borderColor` | table | {1,1,1,1} | Border color |
+| `borderWidth` | number | 0 | Border thickness |
+| `useNinePatch` | boolean | false | Use 9-patch for box |
+| `ninePatchPath` | string | nil | Path to 9-patch image |
+| `ninePatchScale` | number | 1 | 9-patch scale factor |
+| `portraitSize` | number | 100 | Portrait dimensions |
+| `portraitEnabled` | boolean | true | Show portraits |
+| `typingSpeed` | number | 0.05 | Seconds per character |
+
+## Editor Extensions
+
+### VS Code
+Install from `tools/ld-vscode/ld-language-support-1.2.0.vsix`
+
+### Neovim
+Copy `tools/ld-nvim/` to your config:
+```bash
+cp -r tools/ld-nvim/* ~/.config/nvim/
 ```
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License

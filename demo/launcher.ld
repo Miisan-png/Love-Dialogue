@@ -5,13 +5,14 @@
 @atlas Miisan demo/assets/character_portraits/girl1_atlas.png
 @rect Miisan Happy 0 0 100 108
 @voice Miisan demo/assets/sfx/blip.wav
+@color Miisan 00FFFF
 
 // Start background music
 [bgm: demo/assets/sfx/music.wav]
 
 
 [start]
-Miisan: (Happy) Welcome to the LoveDialogue Engine Hub!
+Miisan: (Happy) Welcome to thek LoveDialogue Engine Hub!
 Miisan: (Happy) Select a demo to see specific features in action.
 
 -> Full Story Demo (Logic, Choices, Atlas) [target:load_story]

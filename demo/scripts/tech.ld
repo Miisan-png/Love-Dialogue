@@ -5,10 +5,12 @@
 @rect Miisan Happy 0 0 100 108
 @rect Miisan Sad 100 0 100 108
 @voice Miisan demo/assets/sfx/blip.wav
+@color Miisan 00FFFF
 
 @atlas Eiisan demo/assets/character_portraits/girl2_atlas.png
 @rect Eiisan Happy 0 0 100 108
 @voice Eiisan demo/assets/sfx/low.wav
+@color Eiisan FF4444
 
 // Start with flash
 [fade: in 1.0 #FFFFFF]

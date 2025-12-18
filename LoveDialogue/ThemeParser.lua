@@ -2,16 +2,22 @@ local ThemeParser = {}
 
 local PROPERTY_MAP = {
     box_color = "boxColor",
+    border_color = "borderColor",
+    border_width = "borderWidth",
     text_color = "textColor",
     name_color = "nameColor",
     font_size = "fontSize",
     name_font_size = "nameFontSize",
     box_height = "boxHeight",
+    box_width = "boxWidth",
     padding = "padding",
     nine_patch_scale = "ninePatchScale",
     typing_speed = "typingSpeed",
     fade_in = "fadeInDuration",
-    fade_out = "fadeOutDuration"
+    fade_out = "fadeOutDuration",
+    portrait_size = "portraitSize",
+    use_nine_patch = "useNinePatch",
+    center_box = "centerBox"
 }
 
 function ThemeParser.parseColor(str)
@@ -31,7 +37,15 @@ function ThemeParser.parseTheme(path)
             local k, v = line:match("^%s*([%w_]+)%s*:%s*(.+)%s*$")
             if k and v then
                 local mapK = PROPERTY_MAP[k] or k
-                theme[mapK] = k:match("color$") and ThemeParser.parseColor(v) or tonumber(v)
+                if k:match("color$") then
+                    theme[mapK] = ThemeParser.parseColor(v)
+                elseif v == "true" then
+                    theme[mapK] = true
+                elseif v == "false" then
+                    theme[mapK] = false
+                else
+                    theme[mapK] = tonumber(v)
+                end
             end
         end
     end
@@ -40,7 +54,7 @@ end
 
 function ThemeParser.applyTheme(dialogue, theme)
     for k, v in pairs(theme) do
-        if dialogue.config[k] ~= nil then dialogue.config[k] = v end
+        dialogue.config[k] = v
     end
     if theme.fontSize or theme.nameFontSize or theme.boxHeight or theme.padding then
         if dialogue.adjustLayout then dialogue:adjustLayout() end

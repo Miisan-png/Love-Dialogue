@@ -39,6 +39,11 @@ function LoveDialogue.new(config)
         letterSpacingCJK = config.letterSpacingCJK or 10,
         lineSpacing = config.lineSpacing or 16,
         boxColor = config.boxColor or {0.1, 0.1, 0.1, 0.9},
+        borderColor = config.borderColor or {1, 1, 1, 1},
+        borderWidth = config.borderWidth or 0,
+        boxWidth = config.boxWidth,
+        centerBox = config.centerBox or false,
+        portraitBorder = config.portraitBorder or false,
         textColor = config.textColor or {1, 1, 1, 1},
         nameColor = config.nameColor or {1, 0.8, 0.2, 1},
         padding = config.padding or 20,
@@ -110,7 +115,7 @@ function LoveDialogue.new(config)
         indicator = nil
     }
 
-    if self.config.useNinePatch and self.config.ninePatchPath then self:loadNinePatch() end
+    if self.config.ninePatchPath then self:loadNinePatch() end
     if self.config.indicatorPath then self:loadIndicator() end
     
     self.plugins = {}
@@ -419,30 +424,38 @@ function LoveDialogue:draw()
     if not self.state.isActive then return end
     self:triggerPluginEvent("onBeforeDraw")
     local w, h = love.graphics.getDimensions()
-    local boxW, boxH = w - 2 * self.config.padding, self.config.boxHeight
+    local boxW = self.config.boxWidth or (w - 2 * self.config.padding)
+    local boxH = self.config.boxHeight
+    local boxX = self.config.centerBox and ((w - boxW) / 2) or self.config.padding
+    local boxY = h - boxH - self.config.padding
     local opacity = self.state.boxOpacity
     
     if self.config.characterType == 1 then self:drawVerticalPortrait(w, h, opacity) end
 
     if not self.config.useNinePatch then
         love.graphics.setColor(self.config.boxColor[1], self.config.boxColor[2], self.config.boxColor[3], self.config.boxColor[4] * opacity)
-        love.graphics.rectangle("fill", self.config.padding, h - boxH - self.config.padding, boxW, boxH)
+        love.graphics.rectangle("fill", boxX, boxY, boxW, boxH)
+        if self.config.borderWidth and self.config.borderWidth > 0 then
+            love.graphics.setColor(self.config.borderColor[1] or 1, self.config.borderColor[2] or 1, self.config.borderColor[3] or 1, (self.config.borderColor[4] or 1) * opacity)
+            love.graphics.setLineWidth(self.config.borderWidth)
+            love.graphics.rectangle("line", boxX, boxY, boxW, boxH)
+        end
     elseif self.resources.patch then
         love.graphics.setColor(1, 1, 1, opacity)
-        ninePatch.draw(self.resources.patch, self.config.padding, h - boxH - self.config.padding, boxW, boxH, self.config.ninePatchScale)
+        ninePatch.draw(self.resources.patch, boxX, boxY, boxW, boxH, self.config.ninePatchScale)
     end
 
-    local textX, textY = self.config.padding * 2, h - boxH
+    local textX, textY = boxX + self.config.padding, boxY + self.config.padding
     local textLimit = boxW - self.config.padding * 2
     if self.config.characterType == 0 then
-        local pX, pW = self:drawHorizontalPortrait(h, boxH, opacity)
+        local pX, pW = self:drawHorizontalPortrait(boxX, boxY, boxH, opacity)
         if pW > 0 then textX = pX + pW + self.config.padding; textLimit = textLimit - pW - self.config.padding end
     end
 
     self:drawName(textX, textY, opacity)
     if self.state.currentCharacter ~= "" then textY = textY + self.resources.nameFont:getHeight() + 5 end
     love.graphics.setFont(self.resources.font)
-    if self.state.choiceMode then self:drawChoices(textX, textY, opacity)
+    if self.state.choiceMode then self:drawChoices(textX, textY, textLimit, opacity)
     else self:drawFormattedText(self.state.displayedText, textX, textY, self.config.textColor, self.state.effects, textLimit, opacity) end
     if self.state.autoAdvance and self.state.status == "active" and self.state.displayedText == self.state.fullText then
         love.graphics.setColor(1, 1, 1, opacity * 0.7)
@@ -451,14 +464,14 @@ function LoveDialogue:draw()
     
     if self.state.waitingForInput and not self.state.choiceMode then
         local bounce = math.sin(love.timer.getTime() * 8) * 5
-        local ix = w - self.config.padding - 60
+        local boxW = self.config.boxWidth or (w - 2 * self.config.padding)
+        local boxX = self.config.centerBox and ((w - boxW) / 2) or self.config.padding
+        local ix = boxX + boxW - 100
         local iy = h - self.config.padding - 50 + bounce
         
         love.graphics.setColor(1, 1, 1, opacity * 0.8)
         
         if self.resources.indicator then
-            -- Scale 3x and Flip Vertically (sy = -3)
-            -- Offset origin by height (h=16) to flip correctly
             love.graphics.draw(self.resources.indicator, ix, iy + 16*3, 0, 3, -3)
         else
             love.graphics.polygon("fill", ix, iy, ix+20, iy, ix+10, iy+15)
@@ -480,19 +493,23 @@ function LoveDialogue:drawVerticalPortrait(w, h, opacity)
     end
 end
 
-function LoveDialogue:drawHorizontalPortrait(h, boxH, opacity)
+function LoveDialogue:drawHorizontalPortrait(boxX, boxY, boxH, opacity)
     if not self.config.portraitEnabled then return 0, 0 end
     local char = self.state.characters[self.state.currentCharacter]
     if char and char:hasPortrait() then
         local pSize = self.config.portraitSize
-        local x = self.config.padding * 2
-        local y = h - boxH 
+        local x = boxX + self.config.padding + (char.x or 0)
+        local y = boxY + boxH - pSize - self.config.padding + (char.y or 0)
         
-        love.graphics.setColor(0, 0, 0, opacity * 0.5)
-        love.graphics.rectangle("fill", x, y, pSize, pSize)
         love.graphics.setColor(1, 1, 1, opacity * char.alpha)
-        char:draw(self.state.currentExpression, x, y, pSize, pSize, self.config.portraitFlipH)
-        return x, pSize
+        char:drawPortrait(self.state.currentExpression, x, y, pSize, pSize, self.config.portraitFlipH)
+        
+        if self.resources.patch then
+            love.graphics.setColor(1, 1, 1, opacity)
+            ninePatch.draw(self.resources.patch, x, y, pSize, pSize, self.config.ninePatchScale)
+        end
+        
+        return boxX + self.config.padding, pSize
     end
     return 0, 0
 end
@@ -506,15 +523,15 @@ function LoveDialogue:drawName(x, y, opacity)
     love.graphics.print(self.state.currentCharacter, x, y)
 end
 
-function LoveDialogue:drawChoices(x, y, opacity)
+function LoveDialogue:drawChoices(x, y, textLimit, opacity)
     for i, choice in ipairs(self.state.activeChoices) do
         local isSel = (i == self.state.selectedChoice)
         local prefix = isSel and "> " or "  "
-        local cy = y + (i - 1) * self.config.lineSpacing
+        local cy = y + (i - 1) * (self.resources.font:getHeight() + 8)
         local col = isSel and {1, 1, 0, opacity} or {1, 1, 1, opacity}
         love.graphics.setColor(unpack(col))
         love.graphics.print(prefix, x, cy)
-        if choice.parsedText then self:drawFormattedText(choice.parsedText, x + self.resources.font:getWidth(prefix), cy, col, choice.effects, math.huge, opacity) end
+        if choice.parsedText then self:drawFormattedText(choice.parsedText, x + self.resources.font:getWidth(prefix), cy, col, choice.effects, textLimit, opacity) end
     end
 end
 
@@ -603,7 +620,7 @@ function LoveDialogue:adjustLayout()
     self.resources.font = ResourceManager:getFont(self.instanceId, fontSize, nil, "main_font")
     self.resources.nameFont = ResourceManager:getFont(self.instanceId, math.floor(h * 0.03), nil, "name_font")
     self.config.lineSpacing = math.floor(self.resources.font:getHeight() * 1.5)
-    if self.config.useNinePatch then self:loadNinePatch() end
+    if self.config.ninePatchPath then self:loadNinePatch() end
 end
 
 function LoveDialogue.play(file, conf)

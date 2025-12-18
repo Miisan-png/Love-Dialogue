@@ -1,4 +1,6 @@
 {
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "LoveDialogue",
 	"scopeName": "source.ld",
 	"patterns": [
 		{
