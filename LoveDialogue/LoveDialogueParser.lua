@@ -154,6 +154,17 @@ function Parser.parseFile(path, instanceId)
             elseif clean:match('^%[load_theme:.+%]$') then
                 local themePath = clean:match('^%[load_theme:%s*(.+)%]$')
                 table.insert(lines, { type = "theme_load", path = themePath })
+            -- Goto
+            elseif clean:match('^%[goto:.+%]$') then
+                local target = clean:match('^%[goto:%s*([%w_%-]+)%s*%]$')
+                if target then
+                    table.insert(lines, {
+                        type = "goto",
+                        target = target
+                    })
+                else
+                    print("Warning: Failed to parse goto: '" .. clean .. "'")
+                end
             -- Labels
             elseif clean:match('^%[.*%]$') then
                 local sName = clean:match('^%[(.*)%]$')

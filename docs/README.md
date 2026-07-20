@@ -89,6 +89,24 @@ Choices appear at the end of a dialogue block.
 -> Option Text [target:label_name] [if: condition]
 ```
 
+### 7. Goto
+You can also jump to labels using **goto**.
+```ini
+-> Option Text 1 [target:choice1]
+-> Option Text 2 [target:choice2]
+
+[choice1]
+    Alice: First line of dialogue
+    [goto:choices_end]
+
+[choice2]
+    Alice: Second line of dialogue
+    [goto:choices_end]
+
+[choices_end]
+Alice: Third line of dialogue
+```
+
 ---
 
 ## Text Effects

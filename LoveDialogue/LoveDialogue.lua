@@ -266,6 +266,14 @@ function LoveDialogue:processCurrentLine()
         self:loadTheme(line.path)
         self.state.currentLineIndex = self.state.currentLineIndex + 1
         return self:processCurrentLine()
+
+    elseif line.type == "goto" then
+        local targetIndex = self.state.scenes[line.target]
+        if not targetIndex then
+            error("Unknown dialogue label: " .. tostring(line.target))
+        end
+        self.state.currentLineIndex = targetIndex
+        return self:processCurrentLine()
         
     elseif line.type == "move" then
         local char = self.state.characters[line.name]
