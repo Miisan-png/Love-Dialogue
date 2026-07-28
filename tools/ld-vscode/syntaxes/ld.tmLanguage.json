@@ -8,7 +8,7 @@
 			"name": "comment.line.double-slash.ld"
 		},
 		{
-			"match": "^\s*(\\$)\\s*([a-zA-Z_]\\w*)\\s*(=)",
+			"match": "^\\s*(\\$)\\s*([a-zA-Z_]\\w*)\\s*(=)",
 			"captures": {
 				"1": { "name": "keyword.operator.ld" },
 				"2": { "name": "variable.other.ld" },
@@ -36,7 +36,7 @@
 			}
 		},
 		{
-			"match": "^\s*(\\[)([^:]+?)(\\])\\s*$",
+			"match": "^\\s*(\\[)([^:]+?)(\\])\\s*$",
 			"captures": {
 				"1": { "name": "punctuation.definition.tag.begin.ld" },
 				"2": { "name": "entity.name.section.ld" },
@@ -44,7 +44,7 @@
 			}
 		},
 		{
-			"match": "^\s*(@)(sheet|atlas|frame|rect|voice|portrait)\\s+([a-zA-Z0-9_]+)",
+			"match": "^\\s*(@)(sheet|atlas|frame|rect|voice|portrait)\\s+([a-zA-Z0-9_]+)",
 			"captures": {
 				"1": { "name": "keyword.control.directive.ld" },
 				"2": { "name": "storage.type.ld" },
@@ -52,7 +52,7 @@
 			}
 		},
 		{
-			"match": "^\s*(->)\\s*(.+?)(?=\\[|$)",
+			"match": "^\\s*(->)\\s*(.+?)(?=\\[|$)",
 			"captures": {
 				"1": { "name": "keyword.control.choice.ld" },
 				"2": { "name": "string.quoted.double.ld" }
@@ -69,14 +69,14 @@
 			}
 		},
 		{
-			"match": "^\s*([a-zA-Z0-9_]+)\\s*(:)",
+			"match": "^\\s*([a-zA-Z0-9_]+)\\s*(:)",
 			"captures": {
 				"1": { "name": "entity.name.function.character.ld" },
 				"2": { "name": "punctuation.separator.ld" }
 			}
 		},
 		{
-			"match": "^\s*([a-zA-Z0-9_]+)\\s*(\\()(.+?)(\\))\\s*(:)",
+			"match": "^\\s*([a-zA-Z0-9_]+)\\s*(\\()(.+?)(\\))\\s*(:)",
 			"captures": {
 				"1": { "name": "entity.name.function.character.ld" },
 				"2": { "name": "punctuation.definition.parameters.begin.ld" },
@@ -86,7 +86,7 @@
 			}
 		},
 		{
-			"match": "(\\\$\\{)(.+?)(\\\})",
+			"match": "(\\$\\{)(.+?)(\\})",
 			"name": "variable.other.interpolation.ld"
 		},
 		{
