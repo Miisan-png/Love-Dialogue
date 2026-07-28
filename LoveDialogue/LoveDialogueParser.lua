@@ -52,9 +52,15 @@ function Parser.parseFile(path, instanceId)
         local clean = line:match("^%s*(.-)%s*$")
         if clean ~= "" and not clean:match("^//") then
             
-            -- 1. Portraits
+            -- 1. Characters and Portraits
+            local cName, dName = clean:match('^@character%s+(%S+)%s+"([^"]+)"%s*$')
             local pName, pPath = clean:match('^@portrait%s+(%S+)%s+(.+)$')
-            if pName then
+            if cName then
+                if not chars[cName] then
+                    chars[cName] = Character.new(cName, instanceId)
+                end
+                chars[cName].dName = dName
+            elseif pName then
                 if not chars[pName] then chars[pName] = Character.new(pName, instanceId) end
                 chars[pName]:loadExpression("Default", pPath, 1, 1, 1)
             elseif clean:match('^@sheet%s+') then

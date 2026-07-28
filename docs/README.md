@@ -36,26 +36,32 @@ When calling `LoveDialogue.play(file, config)`, you can pass a table with the fo
 
 Scripts are plain text files. Lines starting with `//` are comments.
 
-### 1. Defining Portraits
-At the very top of your file:
+### 1. Characters
+If the name of the character contains spaces you can define their display name with **@character**. At the very top of the file:
+```ini
+@character CharacterName "Display Name"
+```
+
+### 2. Defining Portraits
+Just below **@character**:
 ```ini
 @portrait CharacterName path/to/image.png
 ```
 
-### 2. Labels (Scenes)
+### 3. Labels (Scenes)
 Labels mark the start of a section. You can jump to them using choices.
 ```ini
 [my_scene_name]
 ```
 
-### 3. Dialogue
+### 4. Dialogue
 Format: `Name: Text`
 ```ini
 Alice: Hi there!
 Bob: (Happy) Hello Alice!
 ```
 
-### 4. Logic & Variables
+### 5. Logic & Variables
 Set variables with `$`:
 ```ini
 $ coins = 100
@@ -71,7 +77,7 @@ Branch flow with `[if]`:
 [endif]
 ```
 
-### 5. Signals
+### 6. Signals
 Trigger external game events (handled via `dialogue.onSignal` in Lua).
 ```ini
 [signal: CameraShake 5]

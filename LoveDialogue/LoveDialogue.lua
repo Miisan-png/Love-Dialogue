@@ -517,10 +517,11 @@ end
 function LoveDialogue:drawName(x, y, opacity)
     if self.state.currentCharacter == "" then return end
     local char = self.state.characters[self.state.currentCharacter]
+    local dName = char and char.dName or self.state.currentCharacter
     local c = char and char.nameColor or self.config.nameColor
     love.graphics.setFont(self.resources.nameFont)
     love.graphics.setColor(c[1] or c.r, c[2] or c.g, c[3] or c.b, opacity)
-    love.graphics.print(self.state.currentCharacter, x, y)
+    love.graphics.print(dName, x, y)
 end
 
 function LoveDialogue:drawChoices(x, y, textLimit, opacity)
