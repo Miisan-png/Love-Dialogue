@@ -540,29 +540,51 @@ function LoveDialogue:drawFormattedText(text, x, y, color, effects, limit, opaci
     local startX = x
     local curX, curY = x, y
     local col = {color[1], color[2], color[3], color[4] * opacity}
-    for pos, char in utf8.codes(text) do
-        local c = utf8.char(char)
-        local dx, dy, s = 0, 0, 1
-        local ec = col
-        if effects then
-            local t = love.timer.getTime()
-            for _, e in ipairs(effects) do
-                if pos >= e.startIndex and pos <= e.endIndex then
-                    local fn = TextEffects[e.type]
-                    if fn then
-                        local nc, off = fn(e, c, pos, t)
-                        if nc then ec = {nc[1], nc[2], nc[3], (nc[4] or 1) * opacity} end
-                        if off then dx, dy, s = dx + (off.x or 0), dy + (off.y or 0), s * (off.scale or 1) end
+    local pos = 0
+
+    for token in text:gmatch("%S+%s*") do
+        local word = token:match("%S+")
+        local wordWidth = 0
+
+        for _, char in utf8.codes(word) do
+            local c = utf8.char(char)
+            local spacing = isCJK(c) and self.config.letterSpacingCJK or self.config.letterSpacingLatin
+            wordWidth = wordWidth + self.resources.font:getWidth(c) + spacing
+        end
+
+        if curX > startX and curX + wordWidth > startX + limit then
+            curX = startX
+            curY = curY + self.config.lineSpacing
+        end
+
+        for _, char in utf8.codes(token) do
+            pos = pos + 1
+
+            local c = utf8.char(char)
+            local dx, dy, s = 0, 0, 1
+            local ec = col
+
+            if effects then
+                local t = love.timer.getTime()
+                for _, e in ipairs(effects) do
+                    if pos >= e.startIndex and pos <= e.endIndex then
+                        local fn = TextEffects[e.type]
+                        if fn then
+                            local nc, off = fn(e, c, pos, t)
+                            if nc then ec = {nc[1], nc[2], nc[3], (nc[4] or 1) * opacity} end
+                            if off then dx, dy, s = dx + (off.x or 0), dy + (off.y or 0), s * (off.scale or 1) end
+                        end
                     end
                 end
             end
+
+            local spacing = isCJK(c) and self.config.letterSpacingCJK or self.config.letterSpacingLatin
+            local w = self.resources.font:getWidth(c) * s
+
+            love.graphics.setColor(unpack(ec))
+            love.graphics.print(c, curX + dx, curY + dy, 0, s, s)
+            curX = curX + w + spacing
         end
-        local spacing = isCJK(c) and self.config.letterSpacingCJK or self.config.letterSpacingLatin
-        local w = self.resources.font:getWidth(c) * s
-        if curX + w + spacing > startX + limit then curX = startX; curY = curY + self.config.lineSpacing end
-        love.graphics.setColor(unpack(ec))
-        love.graphics.print(c, curX + dx, curY + dy, 0, s, s)
-        curX = curX + w + spacing
     end
 end
 
