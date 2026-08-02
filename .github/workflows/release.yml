@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "**"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Build release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+
+          zip -r dist/LoveDialogue.zip LoveDialogue
+
+          cd tools
+          zip -r ../dist/ld-nvim.zip ld-nvim
+          cd ld-vscode
+          npx --yes @vscode/vsce@3 package --out ../../dist/ld-vscode.vsix
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            dist/LoveDialogue.zip \
+            dist/ld-nvim.zip \
+            dist/ld-vscode.vsix \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --generate-notes
